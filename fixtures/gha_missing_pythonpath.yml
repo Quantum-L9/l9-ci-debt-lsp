@@ -1,0 +1,32 @@
+# Fixture: GHA workflow with a Python job missing PYTHONPATH env var.
+# This file should trigger CI-IMPORT-001 diagnostic.
+# Source pattern: cryptoxdog/l9-ci-debt-resolver/references/classification-rules.md#p-001
+name: ai-review
+
+on:
+  pull_request:
+    types: [opened, synchronize]
+
+jobs:
+  analyze:
+    runs-on: ubuntu-latest
+    # MISSING: env: PYTHONPATH: ${{ github.workspace }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install deps
+        run: pip install pyyaml jsonschema pydantic
+      - name: Run analysis
+        run: python tools/review/analyze.py
+
+  # This job has PYTHONPATH set — should NOT trigger CI-IMPORT-001
+  review:
+    runs-on: ubuntu-latest
+    env:
+      PYTHONPATH: ${{ github.workspace }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run review
+        run: python tools/review/report.py

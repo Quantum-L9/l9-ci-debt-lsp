@@ -1,0 +1,17 @@
+# Fixture: pyproject.toml with [project] but no [project.dependencies].
+# This file should trigger CI-DEPS-001 diagnostic.
+# Source pattern: cryptoxdog/l9-ci-debt-resolver/references/classification-rules.md#p-002
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "ai-review"
+version = "0.1.0"
+description = "AI code review tool"
+requires-python = ">=3.11"
+# MISSING: dependencies = [...]
+# pydantic>=2.0 is a known missing runtime dep (CI-DEPS-001)
+
+[tool.ruff]
+line-length = 120

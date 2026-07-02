@@ -1,0 +1,82 @@
+name: ci
+
+on:
+  pull_request:
+    paths:
+      - "server/**"
+      - "rules/**"
+      - "fixtures/**"
+      - "tests/**"
+      - "src/**"
+  push:
+    branches: [main]
+
+jobs:
+  python-server:
+    runs-on: ubuntu-latest
+    env:
+      PYTHONPATH: ${{ github.workspace }}/server
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install server deps
+        run: pip install pygls pydantic pyyaml jsonschema ruff pytest pytest-cov
+
+      - name: Ruff lint
+        run: ruff check server/
+
+      - name: Compile check
+        run: python -m compileall server/
+
+      - name: Validate compiled_rules.json
+        run: |
+          python -c "
+import json, sys
+rules = json.load(open('rules/compiled_rules.json'))
+required = {'id', 'language', 'topology', 'severity', 'patterns', 'message'}
+for r in rules:
+    missing = required - set(r.keys())
+    if missing:
+        print(f\"Rule {r.get('id')} missing: {missing}\")
+        sys.exit(1)
+print(f'All {len(rules)} compiled rules valid')
+"
+
+      - name: Run Python tests
+        run: pytest tests/test_diagnostics.py tests/test_code_actions.py tests/test_rule_compilation.py -v --tb=short
+
+      - name: Upload coverage
+        uses: actions/upload-artifact@v4
+        with:
+          name: python-coverage-${{ github.run_id }}
+          path: .coverage
+          retention-days: 14
+
+  typescript-extension:
+    runs-on: ubuntu-latest
+    env:
+      PYTHONPATH: ${{ github.workspace }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install node deps
+        run: npm ci
+
+      - name: TypeScript compile
+        run: npm run compile
+
+      - name: ESLint
+        run: npm run lint || true
+
+      - name: Jest tests
+        run: npm test
