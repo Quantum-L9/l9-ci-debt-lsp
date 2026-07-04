@@ -1,0 +1,70 @@
+# --- L9_META ---
+# l9_schema: 1
+# origin: l9-ci-core (harvested)
+# engine: ci-debt
+# layer: [ci, governance, rule-modes]
+# tags: [L9_TEMPLATE, shadow-mode, advisory, blocking, debt-node]
+# owner: platform
+# status: active
+# --- /L9_META ---
+#
+# Rule-mode policy for an L9 CI-DEBT node.
+#
+# Modes (canonical): blocking | advisory | shadow | disabled
+#   blocking  -> fails the merge gate
+#   advisory  -> surfaced in the CI summary, never blocks
+#   shadow    -> telemetry only (measuring false positives before promotion)
+#   disabled  -> ignored with a policy record
+#
+# Debt-node posture: "build the rails first". Only a NEWLY-INTRODUCED secret
+# leak blocks merge today. Inherited debt, lint, type, audit, semgrep, and
+# unknown-diff are advisory/shadow until the node is stabilized. Promotion of
+# any rule to `blocking` follows the canonical path and requires governance
+# sign-off (see `promotion` below).
+version: 1
+default_mode: advisory
+rules:
+  # Hard rail on this debt node: a new secret in the PR commit range blocks.
+  SECRET-LEAK-NEW: blocking
+
+  # Canonical mature default is fail-closed; held ADVISORY on debt nodes so a
+  # heterogeneous/unclassified file does not lock an unfinished repo. Promotion
+  # target: blocking (once the classifier taxonomy covers this node's surface).
+  UNKNOWN-DIFF: advisory
+
+  # Contract / architecture rails (no active surface on debt nodes yet).
+  TRANSPORT-PACKET-CONTRACT: advisory
+  DEPRECATED-API: advisory
+  THRESHOLD-POLICY: advisory
+  GOVERNANCE-APPROVAL: advisory
+  PY-SYNTAX: advisory
+  DIRECT-NODE-DISPATCH: advisory
+  HANDLER-SIGNATURE: advisory
+  PII-LOGGING: advisory
+  OPTIONAL-STAGE-MISSING: advisory
+
+  # AST governance is shadow-only per canonical audit-policy (telemetry).
+  SEMGREP-EXPERIMENTAL: shadow
+  AST-TRANSPORT-001: shadow
+  AST-TRANSPORT-002: shadow
+  AST-TRANSPORT-003: shadow
+  AST-TRANSPORT-004: shadow
+  AST-ROUTING-001: shadow
+  AST-ROUTING-002: shadow
+  AST-ROUTING-003: shadow
+  AST-ROUTING-004: shadow
+  AST-LOGGING-001: shadow
+  AST-LOGGING-002: shadow
+  AST-LOGGING-003: shadow
+  AST-HANDLER-001: shadow
+  AST-HANDLER-002: shadow
+  AST-HANDLER-003: shadow
+  AST-HANDLER-004: shadow
+promotion:
+  allowed_transitions:
+    - shadow_to_advisory
+    - advisory_to_blocking
+  blocking_requires:
+    - l9-validated:approve
+    - platform_owner_review
+  telemetry_artifact: artifacts/agent_review_payload.json

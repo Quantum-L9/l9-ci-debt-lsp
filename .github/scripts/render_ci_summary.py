@@ -6,7 +6,7 @@ pr-pipeline.yml and emits:
   - ci_summary.md   : the stable-marker governance comment (Kernel layout)
   - ci_summary.json : machine-readable CI state for the future agent review loop
 
-Marker: <!-- l9-ci-summary-marker: v1 --> (Kernel comment_protocol).
+Marker: <!-- l9-ci-audit-marker: v1 --> (canonical CI audit plane, per audit-policy.yml).
 No third-party dependencies. ASCII status tokens only.
 """
 
@@ -16,7 +16,7 @@ import json
 import os
 import sys
 
-MARKER = "<!-- l9-ci-summary-marker: v1 -->"
+MARKER = "<!-- l9-ci-audit-marker: v1 -->"
 MAX_COMMENT_CHARS = 65336
 
 ICON = {

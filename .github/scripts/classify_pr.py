@@ -1,343 +1,288 @@
 #!/usr/bin/env python3
-"""Classify a GitHub Actions run by changed files and PR labels.
+"""Classify changed files into one canonical L9 CI PR class from governance policy.
 
-Primary signal: changed files.
-Secondary signal: labels (namespaced: type:<name>, area:<name>, risk:<name>).
-No broad whole-repo fallback is used because that creates false positives.
+Policy source of truth:
+- .github/governance/l9-ci-shared-spec.yaml
+
+Input sources, in order:
+1. CLI file paths
+2. CHANGED_FILES environment variable, newline or comma separated
+3. stdin, newline separated
+
+Output is JSON by default. Use --plain to print only the class.
 """
-
 from __future__ import annotations
 
-import fnmatch
+import argparse
 import json
 import os
-import subprocess
 import sys
-from collections.abc import Iterable
-from pathlib import PurePosixPath
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Any
 
-ZERO_SHA = "0000000000000000000000000000000000000000"
+import yaml
 
-# Canonical namespaced label names emitted and consumed by this classifier.
-LABEL_CI = "type:ci"
-LABEL_DOCS = "type:docs"
-LABEL_TESTS = "type:test"  # was type:tests
-LABEL_COMPLIANCE = "type:governance"  # was type:compliance — GH Kernel S2 class stays "compliance"
-LABEL_SECURITY = "type:security"
-LABEL_DEPENDENCY = "type:deps"  # was type:dependency
-LABEL_REFACTOR = "type:refactor"
-LABEL_DOCKER = "area:docker"  # was type:docker
-LABEL_PYTHON = "area:python"  # was scope:python
-LABEL_GITHUB_ACTIONS = "area:workflows"  # was scope:github-actions
-LABEL_L9 = "area:l9"
-LABEL_CONTRACTS = "area:contracts"
-LABEL_TYPING = "area:typing"
-LABEL_RISK_BLOCKING = "risk:blocking"  # routing signal, not classification
-LABEL_RISK_ADVISORY = "risk:advisory"  # routing signal, not classification
-
-# Automation labels (read-only signal, not emitted by classifier):
-# automation:dependabot, automation:coderabbit, automation:perplexity,
-# automation:github-actions, automation:gitguardian, automation:sonarcloud
-
-# Legacy label aliases accepted during transition.
-_LEGACY_LABEL_ALIASES: dict[str, tuple[str, ...]] = {
-    LABEL_CI: ("ci",),
-    LABEL_DOCKER: ("docker", "type:docker"),
-    LABEL_DOCS: ("docs",),
-    LABEL_TESTS: ("testing", "type:tests"),
-    LABEL_COMPLIANCE: ("compliance", "type:compliance"),
-    LABEL_SECURITY: ("security",),
-    LABEL_DEPENDENCY: ("dependencies", "type:dependency"),
-    LABEL_REFACTOR: ("refactor",),
-    LABEL_PYTHON: ("python", "scope:python"),
-    LABEL_GITHUB_ACTIONS: ("github-actions", "scope:github-actions"),
-    LABEL_L9: ("l9",),
-    LABEL_CONTRACTS: ("contracts",),
-    LABEL_TYPING: ("typing", "type:typing"),
-    LABEL_RISK_BLOCKING: ("blocking",),
-    LABEL_RISK_ADVISORY: ("advisory",),
-}
+DEFAULT_CONFIG_PATH = Path(".github/governance/l9-ci-shared-spec.yaml")
+SCRIPT_DEFAULT_CONFIG_PATH = Path(__file__).resolve().parents[1] / "governance" / "l9-ci-shared-spec.yaml"
 
 
-def _has_label(labels: set[str], canonical: str) -> bool:
-    if canonical in labels:
-        return True
-    return any(alias in labels for alias in _LEGACY_LABEL_ALIASES.get(canonical, ()))
+@dataclass(frozen=True)
+class ClassifierPolicy:
+    canonical_classes: set[str]
+    unknown_class: str
+    docs_only_class: str
+    priority: list[str]
+    taxonomy: dict[str, dict[str, Any]]
 
 
-def _run(cmd: list[str]) -> str:
-    return subprocess.check_output(cmd, text=True, stderr=subprocess.STDOUT).strip()
+@dataclass(frozen=True)
+class Classification:
+    pr_class: str
+    changed_files: list[str]
+    reasons: list[str]
+    matched_tags: dict[str, list[str]]
 
 
-def _event() -> dict[str, object]:
-    event_path = os.environ.get("GITHUB_EVENT_PATH")
-    if not event_path:
-        return {}
-    with open(event_path, encoding="utf-8") as fh:
-        loaded = json.load(fh)
-    return loaded if isinstance(loaded, dict) else {}
+def _norm(path: str) -> str:
+    value = path.strip().replace("\\", "/")
+    while value.startswith("./"):
+        value = value[2:]
+    return value
 
 
-def _nested_sha(container: object, *keys: str) -> str:
-    current = container
-    for key in keys:
-        if not isinstance(current, dict):
-            return ""
-        current = current.get(key)
-    return str(current or "")
+def _split_env(value: str) -> list[str]:
+    raw: list[str] = []
+    for line in value.replace(",", "\n").splitlines():
+        item = _norm(line)
+        if item:
+            raw.append(item)
+    return raw
 
 
-def _changed_files(event: dict[str, object]) -> tuple[list[str], bool]:
-    event_name = os.environ.get("GITHUB_EVENT_NAME", "")
-
-    if event_name == "pull_request":
-        base_sha = _nested_sha(event, "pull_request", "base", "sha")
-        head_sha = _nested_sha(event, "pull_request", "head", "sha")
-        if base_sha and head_sha:
-            try:
-                _run(["git", "fetch", "--no-tags", "--depth=100", "origin", base_sha, head_sha])
-                changed = _run(["git", "diff", "--name-only", f"{base_sha}...{head_sha}"])
-                return changed.splitlines(), False
-            except subprocess.CalledProcessError as exc:
-                print(f"classifier warning: PR diff failed: {exc.output}", file=sys.stderr)
-                return [], True
-
-    before = str(event.get("before", ""))
-    after = os.environ.get("GITHUB_SHA", "") or str(event.get("after", ""))
-    if before and after and before != ZERO_SHA:
-        try:
-            changed = _run(["git", "diff", "--name-only", f"{before}...{after}"])
-            return changed.splitlines(), False
-        except subprocess.CalledProcessError as exc:
-            print(f"classifier warning: push diff failed: {exc.output}", file=sys.stderr)
-            return [], True
-
-    return [], True
+def collect_files(argv_files: list[str]) -> list[str]:
+    files = [_norm(p) for p in argv_files if _norm(p)]
+    if files:
+        return sorted(dict.fromkeys(files))
+    env_value = os.environ.get("CHANGED_FILES", "")
+    if env_value.strip():
+        return sorted(dict.fromkeys(_split_env(env_value)))
+    if not sys.stdin.isatty():
+        stdin_value = sys.stdin.read()
+        if stdin_value.strip():
+            return sorted(dict.fromkeys(_split_env(stdin_value)))
+    return []
 
 
-def _labels(event: dict[str, object]) -> set[str]:
-    raw = event.get("pull_request", {})
+def _default_config_path() -> Path:
+    if DEFAULT_CONFIG_PATH.exists():
+        return DEFAULT_CONFIG_PATH
+    return SCRIPT_DEFAULT_CONFIG_PATH
+
+
+def load_policy(config_path: Path | None = None) -> ClassifierPolicy:
+    path = config_path or _default_config_path()
+    try:
+        raw = yaml.safe_load(path.read_text(encoding="utf-8"))
+    except FileNotFoundError as exc:
+        raise SystemExit(f"classifier policy not found: {path}") from exc
+    except yaml.YAMLError as exc:
+        raise SystemExit(f"classifier policy is malformed YAML: {path}: {exc}") from exc
     if not isinstance(raw, dict):
-        return set()
-    labels_raw = raw.get("labels", [])
-    labels: set[str] = set()
-    if isinstance(labels_raw, list):
-        for item in labels_raw:
-            if isinstance(item, dict) and item.get("name"):
-                labels.add(str(item["name"]).lower())
-    return labels
+        raise SystemExit(f"classifier policy must be a mapping: {path}")
+    classifier = raw.get("classifier")
+    if not isinstance(classifier, dict):
+        raise SystemExit(f"classifier policy missing 'classifier' mapping: {path}")
+    canonical = classifier.get("canonical_classes")
+    priority = classifier.get("priority")
+    taxonomy = classifier.get("taxonomy")
+    unknown_class = classifier.get("unknown_class", "unknown_diff")
+    docs_only_class = classifier.get("docs_only_class", "docs_only")
+    if not isinstance(canonical, list) or not all(isinstance(v, str) for v in canonical):
+        raise SystemExit("classifier.canonical_classes must be a list of strings")
+    if not isinstance(priority, list) or not all(isinstance(v, str) for v in priority):
+        raise SystemExit("classifier.priority must be a list of strings")
+    if not isinstance(taxonomy, dict):
+        raise SystemExit("classifier.taxonomy must be a mapping")
+    canonical_set = set(canonical)
+    if unknown_class not in canonical_set:
+        raise SystemExit("classifier.unknown_class must be canonical")
+    if docs_only_class not in canonical_set:
+        raise SystemExit("classifier.docs_only_class must be canonical")
+    for cls in priority:
+        if cls not in canonical_set:
+            raise SystemExit(f"classifier.priority contains non-canonical class: {cls}")
+    for group, rule in taxonomy.items():
+        if not isinstance(rule, dict):
+            raise SystemExit(f"classifier.taxonomy.{group} must be a mapping")
+        cls = rule.get("class")
+        if not isinstance(cls, str) or cls not in canonical_set:
+            raise SystemExit(f"classifier.taxonomy.{group}.class must be canonical")
+    return ClassifierPolicy(
+        canonical_classes=canonical_set,
+        unknown_class=unknown_class,
+        docs_only_class=docs_only_class,
+        priority=priority,
+        taxonomy=taxonomy,
+    )
 
 
-def _match(path: str, patterns: Iterable[str]) -> bool:
-    normalized = path.strip("/")
-    p = PurePosixPath(normalized)
-    for pattern in patterns:
-        clean = pattern.strip("/")
-        if fnmatch.fnmatch(normalized, clean) or p.match(clean):
-            return True
-    return False
+def _as_str_list(value: Any) -> list[str]:
+    if value is None:
+        return []
+    if not isinstance(value, list):
+        return []
+    return [str(item).lower() for item in value]
 
 
-def _any(paths: list[str], patterns: list[str]) -> bool:
-    return any(_match(path, patterns) for path in paths)
+def _parts(lower: str) -> set[str]:
+    return set(lower.replace("-", "_").replace(".", "/").split("/"))
 
 
-def _write_output(values: dict[str, object]) -> None:
-    output_path = os.environ.get("GITHUB_OUTPUT")
-    lines: list[str] = []
-    for key, value in values.items():
-        if isinstance(value, bool):
-            rendered = "true" if value else "false"
-        elif isinstance(value, (list, dict)):
-            rendered = json.dumps(value, separators=(",", ":"))
-        else:
-            rendered = str(value)
-        lines.append(f"{key}={rendered}")
-    if output_path:
-        with open(output_path, "a", encoding="utf-8") as fh:
-            fh.write("\n".join(lines) + "\n")
+def _reason(rule: dict[str, Any], key: str, fallback: str) -> str:
+    reasons = rule.get("reasons")
+    if isinstance(reasons, dict) and isinstance(reasons.get(key), str):
+        return str(reasons[key])
+    return fallback
+
+
+def _matches_prefix(lower: str, rule: dict[str, Any]) -> str | None:
+    for prefix in _as_str_list(rule.get("prefixes")):
+        if lower.startswith(prefix):
+            return _reason(rule, "prefix", f"matched prefix {prefix}")
+    return None
+
+
+def _matches_suffix(lower: str, rule: dict[str, Any]) -> str | None:
+    suffix = Path(lower).suffix
+    for expected in _as_str_list(rule.get("suffixes")):
+        if suffix == expected:
+            return _reason(rule, "suffix", f"matched suffix {expected}")
+    return None
+
+
+def _matches_exact(lower: str, name: str, rule: dict[str, Any]) -> str | None:
+    exact = set(_as_str_list(rule.get("exact")))
+    if lower in exact or name in exact:
+        return _reason(rule, "exact", "matched exact file name")
+    return None
+
+
+def _matches_contains(lower: str, rule: dict[str, Any]) -> str | None:
+    for token in _as_str_list(rule.get("contains")):
+        if token in lower:
+            return _reason(rule, "contains", f"matched token {token}")
+    return None
+
+
+def _matches_parts(parts: set[str], rule: dict[str, Any]) -> str | None:
+    if parts.intersection(set(_as_str_list(rule.get("parts")))):
+        return _reason(rule, "part", "matched path segment")
+    return None
+
+
+def _matches_name_pattern(name: str, rule: dict[str, Any]) -> str | None:
+    raw_patterns = rule.get("name_prefix_suffix") or []
+    if not isinstance(raw_patterns, list):
+        return None
+    for pattern in raw_patterns:
+        if not isinstance(pattern, dict):
+            continue
+        prefix = str(pattern.get("prefix", "")).lower()
+        suffix = str(pattern.get("suffix", "")).lower()
+        if name.startswith(prefix) and name.endswith(suffix):
+            return _reason(rule, "pattern", f"matched name pattern {prefix}*{suffix}")
+    return None
+
+
+def _tags_for(path: str, policy: ClassifierPolicy) -> list[tuple[str, str]]:
+    lower = path.lower()
+    name = Path(lower).name
+    parts = _parts(lower)
+    tags: list[tuple[str, str]] = []
+    for group_name, rule in policy.taxonomy.items():
+        cls = str(rule["class"])
+        match_reason = (
+            _matches_prefix(lower, rule)
+            or _matches_suffix(lower, rule)
+            or _matches_exact(lower, name, rule)
+            or _matches_contains(lower, rule)
+            or _matches_parts(parts, rule)
+            or _matches_name_pattern(name, rule)
+        )
+        if match_reason:
+            tags.append((cls, f"{path}: {match_reason} ({group_name})"))
+    return tags
+
+
+def classify(paths: list[str], policy: ClassifierPolicy | None = None) -> Classification:
+    active_policy = policy or load_policy()
+    changed = sorted(dict.fromkeys(_norm(p) for p in paths if _norm(p)))
+    if not changed:
+        return Classification(active_policy.unknown_class, [], ["no changed files supplied"], {})
+
+    observed: dict[str, list[str]] = {}
+    unknown: list[str] = []
+    for path in changed:
+        tags = _tags_for(path, active_policy)
+        if not tags:
+            unknown.append(path)
+            continue
+        for cls, reason in tags:
+            observed.setdefault(cls, []).append(reason)
+
+    if unknown:
+        return Classification(
+            active_policy.unknown_class,
+            changed,
+            [f"unclassified path: {p}" for p in unknown],
+            observed,
+        )
+
+    if set(observed) == {active_policy.docs_only_class}:
+        return Classification(
+            active_policy.docs_only_class,
+            changed,
+            observed[active_policy.docs_only_class],
+            observed,
+        )
+
+    for cls in active_policy.priority:
+        if cls in observed and cls != active_policy.docs_only_class:
+            return Classification(cls, changed, observed[cls], observed)
+
+    return Classification(active_policy.unknown_class, changed, ["no canonical class matched"], observed)
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description="Classify changed files into one canonical L9 CI PR class.")
+    parser.add_argument("files", nargs="*")
+    parser.add_argument("--config", type=Path, help="Classifier policy YAML path.")
+    parser.add_argument("--plain", action="store_true", help="Print only the canonical class.")
+    args = parser.parse_args(argv)
+
+    policy = load_policy(args.config)
+    result = classify(collect_files(args.files), policy)
+    if result.pr_class not in policy.canonical_classes:
+        print(f"invalid classifier output: {result.pr_class}", file=sys.stderr)
+        return 2
+    if args.plain:
+        print(result.pr_class)
     else:
-        print("\n".join(lines))
-
-
-def main() -> int:
-    event = _event()
-    files, diff_unknown = _changed_files(event)
-    files = sorted(set(files))
-    labels = _labels(event)
-
-    python_changed = _any(files, ["**/*.py"])
-    app_changed = _any(files, ["app/**/*.py"])
-    tests_changed = _any(files, ["tests/**"])
-    docs_changed = _any(files, ["README*", "docs/**", "*.md", "**/*.md"])
-    workflows_changed = _any(
-        files, [".github/workflows/**", ".github/dependabot.yml", ".github/actions/**"]
-    )
-    scripts_changed = _any(files, [".github/scripts/**"])
-    docker_changed = _any(
-        files, ["Dockerfile", "Dockerfile.*", "docker/**", "docker-compose*.yml", ".dockerignore"]
-    )
-    dependency_changed = _any(
-        files, ["pyproject.toml", "requirements*.txt", "poetry.lock", "uv.lock", "Pipfile.lock"]
-    )
-    spec_changed = _any(files, ["domains/**/spec.yaml", "spec.yaml", "**/*spec*.yaml"])
-    adr_changed = _any(files, ["readme/adr/**", "docs/adr/**", "ADR/**"])
-    contracts_changed = _any(
-        files, ["config/contracts/**", "contracts/**", "tools/l9_template_manifest.yaml"]
-    )
-    hooks_changed = _any(files, ["scripts/hooks/**", ".pre-commit-config.yaml"])
-
-    security_sensitive_changed = (
-        workflows_changed
-        or dependency_changed
-        or docker_changed
-        or _any(
-            files,
-            ["app/**/auth*.py", "app/**/security*.py", "app/**/gate*.py", "app/**/transport*.py"],
+        print(
+            json.dumps(
+                {
+                    "pr_class": result.pr_class,
+                    "changed_files": result.changed_files,
+                    "reasons": result.reasons,
+                    "matched_tags": result.matched_tags,
+                },
+                indent=2,
+                sort_keys=True,
+            )
         )
-    )
-    typing_sensitive_changed = app_changed or _any(
-        files,
-        [
-            "**/models.py",
-            "**/schemas.py",
-            "**/transport*.py",
-            "**/handlers.py",
-            "requirements-ci.txt",
-            "pyproject.toml",
-        ],
-    )
-    transport_sensitive_changed = _any(
-        files, ["app/**/transport*.py", "app/**/packet*.py", "app/**/graph_return*.py"]
-    )
-    ingress_sensitive_changed = _any(
-        files, ["app/**/handlers.py", "app/**/chassis_handlers.py", "app/**/boot.py"]
-    )
-
-    only_docs = (
-        bool(files)
-        and docs_changed
-        and not any(
-            [
-                python_changed,
-                workflows_changed,
-                scripts_changed,
-                docker_changed,
-                dependency_changed,
-                spec_changed,
-                contracts_changed,
-            ]
-        )
-    )
-    only_types_dependency = (
-        dependency_changed and any("types-" in f.lower() for f in files) and not app_changed
-    )
-
-    # Namespaced label matching (canonical + legacy aliases during transition).
-    has_ci_label = _has_label(labels, LABEL_CI) or _has_label(labels, LABEL_GITHUB_ACTIONS)
-    has_docker_label = _has_label(labels, LABEL_DOCKER)
-    has_security_label = _has_label(labels, LABEL_SECURITY)
-    has_dependency_label = _has_label(labels, LABEL_DEPENDENCY)
-    has_python_label = _has_label(labels, LABEL_PYTHON)
-    has_github_actions_label = _has_label(labels, LABEL_GITHUB_ACTIONS)
-    has_testing_label = _has_label(labels, LABEL_TESTS)
-    has_typing_label = _has_label(labels, LABEL_TYPING)
-    has_compliance_label = _has_label(labels, LABEL_COMPLIANCE)
-    has_refactor_label = _has_label(labels, LABEL_REFACTOR)
-    has_l9_label = _has_label(labels, LABEL_L9)
-    has_contracts_label = _has_label(labels, LABEL_CONTRACTS)
-    has_risk_blocking_label = _has_label(labels, LABEL_RISK_BLOCKING)
-    has_risk_advisory_label = _has_label(labels, LABEL_RISK_ADVISORY)
-
-    semgrep_relevant = (
-        app_changed or python_changed or security_sensitive_changed or has_security_label
-    )
-    sbom_relevant = (
-        dependency_changed or docker_changed or has_dependency_label or has_security_label
-    )
-    scorecard_relevant = (
-        workflows_changed or security_sensitive_changed or has_security_label or has_ci_label
-    )
-
-    pr_class = "unknown_diff"
-    if diff_unknown:
-        pr_class = "unknown_diff"
-    elif (
-        workflows_changed
-        or scripts_changed
-        or docker_changed
-        or has_github_actions_label
-        or has_ci_label
-        or has_docker_label
-    ):
-        # Docker file changes are CI surface (was pr_class "docker").
-        pr_class = "ci_workflow"
-    elif only_docs:
-        pr_class = "docs_only"
-    elif tests_changed and not app_changed:
-        pr_class = "app_code"
-    elif (
-        spec_changed
-        or adr_changed
-        or contracts_changed
-        or has_compliance_label
-        or has_l9_label
-        or has_contracts_label
-    ):
-        pr_class = "compliance"
-    elif security_sensitive_changed or has_security_label:
-        pr_class = "security"
-    elif only_types_dependency or has_typing_label or dependency_changed or has_dependency_label:
-        pr_class = "dependency_python"
-    elif app_changed or has_refactor_label:
-        pr_class = "app_code"
-
-    outputs: dict[str, object] = {
-        "all_changed_files": files,
-        "changed_count": len(files),
-        "diff_unknown": diff_unknown,
-        "labels": sorted(labels),
-        "pr_class": pr_class,
-        "python_changed": python_changed,
-        "app_changed": app_changed,
-        "tests_changed": tests_changed,
-        "docs_changed": docs_changed,
-        "workflows_changed": workflows_changed,
-        "scripts_changed": scripts_changed,
-        "docker_changed": docker_changed,
-        "dependency_changed": dependency_changed,
-        "spec_changed": spec_changed,
-        "adr_changed": adr_changed,
-        "contracts_changed": contracts_changed,
-        "hooks_changed": hooks_changed,
-        "security_sensitive_changed": security_sensitive_changed,
-        "typing_sensitive_changed": typing_sensitive_changed,
-        "transport_sensitive_changed": transport_sensitive_changed,
-        "ingress_sensitive_changed": ingress_sensitive_changed,
-        "semgrep_relevant": semgrep_relevant,
-        "sbom_relevant": sbom_relevant,
-        "scorecard_relevant": scorecard_relevant,
-        "only_types_dependency": only_types_dependency,
-        # namespaced label outputs
-        "has_dependencies_label": has_dependency_label,
-        "has_python_label": has_python_label,
-        "has_github_actions_label": has_github_actions_label,
-        "has_ci_label": has_ci_label,
-        "has_docker_label": has_docker_label,
-        "has_security_label": has_security_label,
-        "has_testing_label": has_testing_label,
-        "has_typing_label": has_typing_label,
-        "has_compliance_label": has_compliance_label,
-        "has_refactor_label": has_refactor_label,
-        "has_l9_label": has_l9_label,
-        "has_contracts_label": has_contracts_label,
-        "has_risk_blocking_label": has_risk_blocking_label,
-        "has_risk_advisory_label": has_risk_advisory_label,
-    }
-    _write_output(outputs)
-    print(json.dumps(outputs, indent=2, sort_keys=True))
     return 0
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    raise SystemExit(main())

@@ -1,50 +1,68 @@
 # --- L9_META ---
 # l9_schema: 1
-# origin: l9-ci-kernel
-# engine: ci-debt
-# layer: [ci, governance]
-# tags: [routing, classifier, policy]
+# origin: l9-ci-core
+# layer: [ci, governance, routing]
+# tags: [L9_TEMPLATE, routing, policy]
 # owner: platform
 # status: active
 # --- /L9_META ---
-# L9 CI routing policy (source: L9 CI Kernel routing_policy).
-# Debt-node overlay: gates are surface-detecting; a gate whose surface is absent
-# is SKIPPED cleanly. On this node class every gate is advisory EXCEPT a
-# newly-introduced secret leak, which blocks the PR Pipeline Gate.
-schema_version: 1.0.0
-node_class: ci_debt
-classifier: .github/scripts/classify_pr.py
-changed_files_primary: true
-labels_secondary: true
-unknown_diff: fail_closed_conservative
-routing:
+version: 1
+routing_policy:
   docs_only:
-    blocking: []
-    advisory: [markdown_lint, link_check, docs_consistency]
-    skip: [heavy_tests, broad_audit, docker_build]
+    blocking:
+      - markdown_lint
+      - syntax_if_code_blocks_changed
+    advisory:
+      - docs_consistency
+    skip:
+      - deep_attestation
+      - broad_audit
+      - heavy_tests
   ci_workflow:
-    blocking: []
-    advisory: [workflow_yaml_parse, classifier_integrity]
-    skip: [app_integration_tests]
+    blocking:
+      - workflow_yaml_parse
+      - classifier_integrity
+      - action_permission_check
+      - checkout_version_check
+    advisory:
+      - governance_review
   dependency_python:
-    blocking: []
-    advisory: [dependency_review, sbom, lockfile_consistency]
-  docker:
-    blocking: []
-    advisory: [dockerfile_lint, image_secret_scan]
-  tests_only:
-    blocking: []
-    advisory: [pytest_targeted, lint_tests]
+    blocking:
+      - dependency_install
+      - dependency_review
+      - lockfile_consistency
+    advisory:
+      - sbom
+      - license_report
   app_code:
-    blocking: []
-    advisory: [lint, type_check, tests, semgrep, touched_file_audit]
+    blocking:
+      - lint
+      - type_check
+      - tests
+      - touched_file_audit
+    conditional:
+      - contract_gate_if_surface_changed
   security:
-    blocking: [new_secret_leak]
-    advisory: [semgrep, dependency_review, touched_security_audit]
+    blocking:
+      - secrets_scan
+      - semgrep
+      - dependency_review
+      - touched_security_audit
+      - fail_closed_high_critical
+    advisory:
+      - scorecard
   compliance:
-    blocking: []
-    advisory: [contract_control, architecture_compliance, schema_validation]
+    blocking:
+      - contract_control
+      - architecture_compliance
+      - runtime_attestation
+      - schema_validation
   unknown_diff:
-    behavior: fail_closed_conservative
-    blocking: [new_secret_leak]
-    advisory: [validate, lint, semgrep, secret_scan]
+    blocking:
+      - validate
+      - lint
+      - tests
+      - semgrep
+      - secrets_scan
+      - contract_control
+    behavior: fail_closed

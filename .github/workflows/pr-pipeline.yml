@@ -1,23 +1,30 @@
 # --- L9_META ---
 # l9_schema: 1
-# origin: l9-ci-kernel
+# origin: l9-ci-kernel (harvested from l9-ci-core / l9-ci-sdk)
 # engine: ci-debt
 # layer: [ci, governance]
-# tags: [pr-pipeline, classifier, gate, advisory-first]
+# tags: [pr-pipeline, classifier, gate, advisory-first, rule-modes]
 # owner: platform
 # status: active
 # --- /L9_META ---
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-# PR Pipeline — canonical L9 merge gate for CI-debt nodes
+# PR Pipeline — self-contained L9 merge gate for CI-debt nodes
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# Concepts harvested from Quantum-L9/l9-ci-core + l9-ci-sdk and VENDORED here
+# (those repos are not yet consumable via `uses:`/`pip install`):
+#   * policy-driven classifier  -> .github/scripts/classify_pr.py
+#                                   + .github/governance/l9-ci-shared-spec.yaml
+#   * rule-mode governance       -> .github/governance/rule-modes.yaml
+#   * canonical governance set   -> audit-policy / audit-baseline / thresholds
+#   * L9 AST rules (shadow)      -> .semgrep/l9-*.yml
+#
 # Philosophy: "CI is a routing system, not a nightclub bouncer."
-#   1. Classify the PR (changed files primary, labels secondary).
-#   2. Run only the gates whose surface is present (skip cleanly otherwise).
-#   3. Block merge ONLY on a newly-introduced secret leak (diff-scoped gitleaks).
-#      All other gates are advisory on this debt node — inherited debt is
-#      surfaced, never merge-blocking ("build the rails first").
-#   4. Emit machine-readable governance state (ci_summary.json, agent payload)
-#      and one stable-marker PR comment (<!-- l9-ci-summary-marker: v1 -->).
+#   1. Classify the PR from changed files (policy-driven, 7 canonical classes).
+#   2. Run only the gates whose surface is present; skip cleanly otherwise.
+#   3. Block merge ONLY on a rule whose mode == blocking (rule-modes.yaml).
+#      Debt-node default: only a newly-introduced secret leak blocks.
+#   4. Emit machine-readable state (ci_summary.json, agent payload) and one
+#      stable-marker PR comment (<!-- l9-ci-audit-marker: v1 -->).
 # The job named "PR Pipeline Gate" is the branch-protection required check.
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
@@ -49,7 +56,7 @@ env:
 
 jobs:
   # ────────────────────────────────────────────────────────────────────────
-  # CLASSIFY
+  # CLASSIFY — canonical policy-driven classifier (l9-ci-shared-spec.yaml)
   # ────────────────────────────────────────────────────────────────────────
   classify:
     name: Classify PR
@@ -67,15 +74,87 @@ jobs:
       sbom_relevant: ${{ steps.c.outputs.sbom_relevant }}
       security_sensitive_changed: ${{ steps.c.outputs.security_sensitive_changed }}
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
       - uses: actions/setup-python@v6
         with:
           python-version: ${{ env.PYTHON_VERSION }}
+      - name: Install classifier deps
+        run: python -m pip install --quiet pyyaml
+      - name: Compute changed files
+        id: diff
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set +e
+          if [ -n "$BASE_SHA" ] && [ -n "$HEAD_SHA" ]; then
+            git fetch --no-tags --depth=1 origin "$BASE_SHA" >/dev/null 2>&1
+            CHANGED=$(git diff --name-only "$BASE_SHA" "$HEAD_SHA" 2>/dev/null)
+            [ -z "$CHANGED" ] && CHANGED=$(git diff --name-only "$BASE_SHA...$HEAD_SHA" 2>/dev/null)
+          else
+            CHANGED=$(git diff --name-only HEAD~1 HEAD 2>/dev/null)
+          fi
+          [ -z "$CHANGED" ] && CHANGED=$(git ls-files)
+          printf '%s\n' "$CHANGED" > changed_files.txt
+          echo "Changed files:"; cat changed_files.txt
       - name: Classify changed files
         id: c
-        run: python3 .github/scripts/classify_pr.py
+        env:
+          GITHUB_EVENT_PATH: ${{ github.event_path }}
+        run: |
+          python3 - <<'PY'
+          import json, os, subprocess, sys
+          changed = [l.strip() for l in open("changed_files.txt", encoding="utf-8") if l.strip()]
+          env = dict(os.environ)
+          env["CHANGED_FILES"] = "\n".join(changed)
+          # Canonical, policy-driven classifier (fails closed on unknown diffs).
+          proc = subprocess.run(
+              [sys.executable, ".github/scripts/classify_pr.py",
+               "--config", ".github/governance/l9-ci-shared-spec.yaml"],
+              input="\n".join(changed), capture_output=True, text=True, env=env,
+          )
+          try:
+              data = json.loads(proc.stdout) if proc.stdout.strip() else {}
+          except json.JSONDecodeError:
+              data = {}
+          pr_class = data.get("pr_class") or "unknown_diff"
+          # Surface detection derived from the changed-file set.
+          def any_suffix(suffixes):
+              return any(c.lower().endswith(suffixes) for c in changed)
+          python_changed = any_suffix((".py", ".pyi"))
+          dep_files = ("requirements.txt", "requirements-ci.txt", "requirements-dev.txt",
+                       "pyproject.toml", "poetry.lock", "uv.lock", "pipfile", "pipfile.lock",
+                       "setup.py", "setup.cfg")
+          dependency_changed = pr_class == "dependency_python" or any(
+              os.path.basename(c).lower() in dep_files for c in changed)
+          # Labels from the PR event payload.
+          labels = []
+          ev_path = os.environ.get("GITHUB_EVENT_PATH")
+          if ev_path and os.path.exists(ev_path):
+              try:
+                  ev = json.load(open(ev_path, encoding="utf-8"))
+                  labels = [l["name"] for l in ev.get("pull_request", {}).get("labels", [])]
+              except Exception:
+                  labels = []
+          out = {
+              "pr_class": pr_class,
+              "diff_unknown": str(pr_class == "unknown_diff").lower(),
+              "changed_count": str(len(changed)),
+              "labels": json.dumps(labels),
+              "python_changed": str(python_changed).lower(),
+              "docs_changed": str(pr_class == "docs_only").lower(),
+              "dependency_changed": str(dependency_changed).lower(),
+              "semgrep_relevant": str(python_changed).lower(),
+              "sbom_relevant": str(dependency_changed).lower(),
+              "security_sensitive_changed": str(pr_class == "security").lower(),
+          }
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as fh:
+              for k, v in out.items():
+                  fh.write(f"{k}={v}\n")
+          print(json.dumps({**out, "reasons": data.get("reasons", [])}, indent=2))
+          PY
 
   # ────────────────────────────────────────────────────────────────────────
   # SECRET SCAN — the only hard-blocking gate (diff-scoped, license-free CLI)
@@ -88,7 +167,7 @@ jobs:
     outputs:
       findings: ${{ steps.scan.outputs.findings }}
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
           persist-credentials: false
@@ -148,28 +227,40 @@ jobs:
     timeout-minutes: 10
     needs: classify
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@v6
       - uses: actions/setup-python@v6
         with:
           python-version: ${{ env.PYTHON_VERSION }}
       - name: Install validation tools
         run: pip install --quiet pyyaml
-      - name: Validate workflow YAML
+      - name: Validate workflow + governance YAML
         run: |
           python3 - <<'PY'
-          import glob, sys, yaml
+          import glob, yaml
           bad = []
-          for f in glob.glob('.github/workflows/*.yml') + glob.glob('.github/workflows/*.yaml'):
+          targets = (glob.glob('.github/workflows/*.yml') + glob.glob('.github/workflows/*.yaml')
+                     + glob.glob('.github/governance/*.yml') + glob.glob('.github/governance/*.yaml'))
+          for f in targets:
               try:
                   yaml.safe_load(open(f, encoding='utf-8'))
               except yaml.YAMLError as e:
                   bad.append(f"{f}: {e}")
           if bad:
               for b in bad: print(f"::warning::{b}")
-              print("[WARN] workflow YAML issues found (advisory)")
+              print("[WARN] YAML issues found (advisory)")
           else:
-              print("[PASS] all workflow YAML valid")
+              print("[PASS] all workflow + governance YAML valid")
           PY
+      - name: Validate classifier + shared-spec integrity (advisory)
+        run: |
+          set +e
+          python3 .github/scripts/classify_pr.py --plain README.md >/dev/null 2>classify_err.txt
+          if [ -s classify_err.txt ]; then
+            echo "::warning::classifier integrity issue (advisory):"; cat classify_err.txt
+          else
+            echo "[PASS] classifier loads policy and classifies a sample path"
+          fi
+          exit 0
       - name: Check Python syntax (advisory)
         run: |
           set +e
@@ -197,7 +288,7 @@ jobs:
     needs: classify
     if: needs.classify.outputs.python_changed == 'true'
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@v6
       - uses: actions/setup-python@v6
         with:
           python-version: ${{ env.PYTHON_VERSION }}
@@ -209,27 +300,36 @@ jobs:
           ruff format --check . || echo "::warning::ruff format drift (advisory)"
 
   # ────────────────────────────────────────────────────────────────────────
-  # SEMGREP — advisory, only when Python present and rules exist
+  # SEMGREP — advisory/shadow L9 AST rules, only when Python present
   # ────────────────────────────────────────────────────────────────────────
   semgrep:
-    name: Semgrep (advisory)
+    name: Semgrep (L9 AST, shadow/advisory)
     runs-on: ubuntu-latest
     timeout-minutes: 10
     needs: classify
     if: needs.classify.outputs.semgrep_relevant == 'true'
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@v6
       - uses: actions/setup-python@v6
         with:
           python-version: ${{ env.PYTHON_VERSION }}
-      - name: Run semgrep (advisory)
+      - name: Run semgrep (advisory; L9 AST rules are shadow-mode)
         run: |
           if [ ! -d .semgrep ]; then
             echo "[SKIP] no .semgrep rules directory"
             exit 0
           fi
           pip install --quiet semgrep
-          semgrep --config .semgrep/ --error --quiet || echo "::warning::semgrep findings (advisory)"
+          semgrep --config .semgrep/ --quiet --json --output semgrep.json || true
+          semgrep --config .semgrep/ --quiet || echo "::warning::semgrep findings (advisory / shadow telemetry)"
+      - name: Upload semgrep telemetry
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: semgrep-telemetry
+          path: semgrep.json
+          if-no-files-found: ignore
+          retention-days: 30
 
   # ────────────────────────────────────────────────────────────────────────
   # AUDIT — advisory, only when the L9 audit engine exists
@@ -240,7 +340,7 @@ jobs:
     timeout-minutes: 10
     needs: classify
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@v6
       - uses: actions/setup-python@v6
         with:
           python-version: ${{ env.PYTHON_VERSION }}
@@ -264,7 +364,7 @@ jobs:
     needs: classify
     if: needs.classify.outputs.sbom_relevant == 'true'
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@v6
       - uses: actions/setup-python@v6
         with:
           python-version: ${{ env.PYTHON_VERSION }}
@@ -311,7 +411,7 @@ jobs:
       - audit
       - supply_chain
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@v6
       - uses: actions/setup-python@v6
         with:
           python-version: ${{ env.PYTHON_VERSION }}
@@ -379,7 +479,7 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
           PR_NUMBER: ${{ github.event.pull_request.number || github.event.inputs.pr_number }}
           COMMENT_BODY_PATH: ci_summary.md
-          COMMENT_MARKER: "<!-- l9-ci-summary-marker: v1 -->"
+          COMMENT_MARKER: "<!-- l9-ci-audit-marker: v1 -->"
         run: python3 .github/scripts/update_marker_comment.py
       - name: Build agent-review payload (advisory, loop disabled)
         run: python3 .github/scripts/agent_review_payload.py
@@ -395,7 +495,9 @@ jobs:
             agent_review_payload.json
           if-no-files-found: ignore
           retention-days: 30
-      - name: Evaluate gate (blocks only on new secret)
+      - name: Evaluate gate (rule-mode aware; blocks only on blocking-mode rules)
+        env:
+          RULE_MODES_PATH: .github/governance/rule-modes.yaml
         run: python3 .github/scripts/evaluate_ci_gate.py
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
