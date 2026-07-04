@@ -14,6 +14,8 @@
 # Secret: PERPLEXITY_API_KEY (org secret, visibility=all). If absent, the run
 # skips gracefully instead of failing.
 # Script: tools/ai_review.py
+# Comment protocol: L9 Kernel stable-marker (l9-ai-review-marker: v1); a legacy
+# marker is still matched so existing comments are updated, never duplicated.
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 name: AI Code Review (Perplexity)
@@ -44,7 +46,7 @@ jobs:
 
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
@@ -62,7 +64,7 @@ jobs:
 
       - name: Set up Python
         if: steps.key.outputs.present == 'true'
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: "3.12"
           cache: pip
@@ -117,7 +119,7 @@ jobs:
         if: steps.key.outputs.present == 'true' && steps.diff.outputs.empty != 'true'
         run: |
           cat > review_comment.md << 'HEADER'
-          <!-- ai-code-review-perplexity -->
+          <!-- l9-ai-review-marker: v1 -->
           ## 🤖 AI Code Review (Perplexity)
 
           HEADER
@@ -135,18 +137,19 @@ jobs:
 
       - name: Post PR Comment
         if: steps.key.outputs.present == 'true' && steps.diff.outputs.empty != 'true'
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         with:
           script: |
             const fs = require('fs');
-            const marker = '<!-- ai-code-review-perplexity -->';
+            const marker = '<!-- l9-ai-review-marker: v1 -->';
+            const legacyMarker = '<!-- ai-code-review-perplexity -->';
             const body = fs.readFileSync('review_comment.md', 'utf8');
             const prNumber = parseInt('${{ steps.diff.outputs.pr_number }}', 10);
             if (!prNumber) { core.info('No PR number — skipping comment'); return; }
             const { data: comments } = await github.rest.issues.listComments({
               owner: context.repo.owner, repo: context.repo.repo, issue_number: prNumber,
             });
-            const existing = comments.find(c => c.user.type === 'Bot' && c.body && c.body.includes(marker));
+            const existing = comments.find(c => c.body && (c.body.includes(marker) || c.body.includes(legacyMarker)));
             if (existing) {
               await github.rest.issues.updateComment({
                 owner: context.repo.owner, repo: context.repo.repo, comment_id: existing.id, body,
