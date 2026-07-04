@@ -1,0 +1,13 @@
+{
+  "artifact_name": "ci-debt-intelligence-compiled-rules",
+  "generated_at": "2026-07-03T00:00:00Z",
+  "producer": "l9-ci-debt-intelligence",
+  "refresh_command": "python server/refresh_rules.py --intelligence-outputs <path-to-intelligence-outputs> --rules-out rules/compiled_rules.json --lock-out rules/compiled_rules.lock.json",
+  "refreshed_at": "2026-07-04T05:24:40Z",
+  "rule_count": 5,
+  "rules_sha256": "b4321076f9455eb24d85b4a6a753641ba6eab9440d71bdd1c25a2dd593cb052a",
+  "schema_version": "1.0",
+  "source": "fixtures/intelligence/outputs/compiled-rules/compiled_rules.json",
+  "source_run_id": "fixture",
+  "source_sha": "fixture"
+}

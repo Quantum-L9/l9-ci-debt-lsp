@@ -1,4 +1,4 @@
-"""Load and validate compiled_rules.json from l9-ci-debt-intelligence."""
+"""Load compiled_rules.json from l9-ci-debt-intelligence for the LSP server."""
 from __future__ import annotations
 
 import json
@@ -18,10 +18,7 @@ BUILTIN_RULES: list[dict[str, Any]] = [
         "topology": "gha_workflow",
         "severity": "error",
         "pattern_type": "regex",
-        # Matches a GHA job block that lacks env: PYTHONPATH
-        "patterns": [
-            r"^\s{2}[\w-]+:\s*$",  # job name line
-        ],
+        "patterns": [r"^\s{2}[\w-]+:\s*$"],
         "negative_patterns": [r"PYTHONPATH"],
         "message": (
             "CI-IMPORT-001: GHA job missing PYTHONPATH env var. "
@@ -34,6 +31,7 @@ BUILTIN_RULES: list[dict[str, Any]] = [
             "insert_after_pattern": r"(runs-on:.*)",
             "insert_text": "    env:\n      PYTHONPATH: ${{ github.workspace }}\n",
         },
+        "source": "l9-ci-debt-lsp/builtin-fallback",
     },
     {
         "id": "CI-DEPS-001",
@@ -54,6 +52,7 @@ BUILTIN_RULES: list[dict[str, Any]] = [
             "insert_after_pattern": r"(\[project\])",
             "insert_text": '\ndependencies = [\n    "pydantic>=2.0",\n]\n',
         },
+        "source": "l9-ci-debt-lsp/builtin-fallback",
     },
     {
         "id": "CI-DEPS-002",
@@ -77,6 +76,7 @@ BUILTIN_RULES: list[dict[str, Any]] = [
                 "        run: pip install pyyaml jsonschema pydantic\n"
             ),
         },
+        "source": "l9-ci-debt-lsp/builtin-fallback",
     },
     {
         "id": "API-DRIFT-001",
@@ -92,7 +92,8 @@ BUILTIN_RULES: list[dict[str, Any]] = [
             "See: https://github.com/cryptoxdog/l9-ci-debt-resolver/blob/main/"
             "references/classification-rules.md#p-004-source-file-missing-exported-symbol"
         ),
-        "quick_fix": None,  # Multi-line structural change; surface for human
+        "quick_fix": None,
+        "source": "l9-ci-debt-lsp/builtin-fallback",
     },
     {
         "id": "DOCTRINE",
@@ -110,28 +111,44 @@ BUILTIN_RULES: list[dict[str, Any]] = [
             "See: https://github.com/cryptoxdog/l9-ci-debt-resolver/blob/main/"
             "references/classification-rules.md#doctrine-violation-response"
         ),
-        "quick_fix": None,  # Doctrine violations are never auto-patched
+        "quick_fix": None,
+        "source": "l9-ci-debt-lsp/builtin-fallback",
     },
 ]
 
 
 class RulesLoader:
-    """Load compiled_rules.json; fall back to BUILTIN_RULES if file absent."""
+    """Load compiled rules; fall back to a minimal built-in safety rule if absent."""
 
     def __init__(self, rules_path: Path) -> None:
         self.rules_path = rules_path
+        self.metadata: dict[str, Any] = {}
         self.rules: list[dict[str, Any]] = []
         self.reload(rules_path)
 
     def reload(self, rules_path: Path) -> None:
         self.rules_path = rules_path
-        if rules_path.exists():
-            try:
-                loaded = json.loads(rules_path.read_text())
-                self.rules = loaded if isinstance(loaded, list) else loaded.get("rules", [])
-                log.info("Loaded %d rules from %s", len(self.rules), rules_path)
-                return
-            except Exception as exc:
-                log.warning("Failed to load %s: %s — falling back to builtins", rules_path, exc)
-        log.info("compiled_rules.json not found — using %d builtin rules", len(BUILTIN_RULES))
-        self.rules = list(BUILTIN_RULES)
+        if not rules_path.exists():
+            log.warning("compiled rules not found at %s; using %d built-in fallback rule(s)", rules_path, len(BUILTIN_RULES))
+            self.metadata = {"source": "builtin-fallback", "rules_path": str(rules_path)}
+            self.rules = list(BUILTIN_RULES)
+            return
+
+        try:
+            loaded = json.loads(rules_path.read_text())
+            if isinstance(loaded, list):
+                self.metadata = {"schema_version": "legacy-list", "producer": "Unknown", "artifact_name": "Unknown"}
+                self.rules = loaded
+            elif isinstance(loaded, dict):
+                rules = loaded.get("rules", [])
+                if not isinstance(rules, list):
+                    raise ValueError("compiled rules object must contain rules array")
+                self.metadata = {key: value for key, value in loaded.items() if key != "rules"}
+                self.rules = rules
+            else:
+                raise ValueError("compiled rules JSON must be object or array")
+            log.info("Loaded %d compiled rules from %s", len(self.rules), rules_path)
+        except Exception as exc:
+            log.warning("failed to load %s: %s; using %d built-in fallback rule(s)", rules_path, exc, len(BUILTIN_RULES))
+            self.metadata = {"source": "builtin-fallback", "rules_path": str(rules_path), "load_error": str(exc)}
+            self.rules = list(BUILTIN_RULES)

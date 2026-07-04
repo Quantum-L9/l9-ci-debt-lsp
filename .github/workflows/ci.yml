@@ -8,6 +8,8 @@ on:
       - "fixtures/**"
       - "tests/**"
       - "src/**"
+      - "package.json"
+      - ".github/workflows/ci.yml"
   push:
     branches: [main]
 
@@ -15,7 +17,7 @@ jobs:
   python-server:
     runs-on: ubuntu-latest
     env:
-      PYTHONPATH: ${{ github.workspace }}/server
+      PYTHONPATH: ${{ github.workspace }}
 
     steps:
       - uses: actions/checkout@v4
@@ -28,33 +30,38 @@ jobs:
         run: pip install pygls pydantic pyyaml jsonschema ruff pytest pytest-cov
 
       - name: Ruff lint
-        run: ruff check server/
+        run: ruff check server/ tests/
 
       - name: Compile check
-        run: python -m compileall server/
+        run: python -m compileall server/ tests/
 
-      - name: Validate compiled_rules.json
+      - name: Validate active compiled rules
+        run: python server/validate_compiled_rules.py --rules rules/compiled_rules.json --lock rules/compiled_rules.lock.json
+
+      - name: Refresh rules from Intelligence fixture
         run: |
-          python -c "
-import json, sys
-rules = json.load(open('rules/compiled_rules.json'))
-required = {'id', 'language', 'topology', 'severity', 'patterns', 'message'}
-for r in rules:
-    missing = required - set(r.keys())
-    if missing:
-        print(f\"Rule {r.get('id')} missing: {missing}\")
-        sys.exit(1)
-print(f'All {len(rules)} compiled rules valid')
-"
+          python server/refresh_rules.py \
+            --intelligence-outputs fixtures/intelligence/outputs \
+            --rules-out /tmp/l9-compiled-rules.json \
+            --lock-out /tmp/l9-compiled-rules.lock.json \
+            --expected-schema-version 1.0 \
+            --expected-artifact-name ci-debt-intelligence-compiled-rules \
+            --source-run-id ci-fixture \
+            --source-sha ci-fixture
+          python server/validate_compiled_rules.py \
+            --rules /tmp/l9-compiled-rules.json \
+            --lock /tmp/l9-compiled-rules.lock.json
 
       - name: Run Python tests
-        run: pytest tests/test_diagnostics.py tests/test_code_actions.py tests/test_rule_compilation.py -v --tb=short
+        run: pytest tests/test_compiled_rules_validation.py tests/test_diagnostics.py tests/test_code_actions.py -q
 
-      - name: Upload coverage
+      - name: Upload refreshed fixture artifact
         uses: actions/upload-artifact@v4
         with:
-          name: python-coverage-${{ github.run_id }}
-          path: .coverage
+          name: lsp-refreshed-rules-${{ github.run_id }}
+          path: |
+            /tmp/l9-compiled-rules.json
+            /tmp/l9-compiled-rules.lock.json
           retention-days: 14
 
   typescript-extension:
@@ -70,7 +77,7 @@ print(f'All {len(rules)} compiled rules valid')
           node-version: "20"
 
       - name: Install node deps
-        run: npm ci
+        run: npm install
 
       - name: TypeScript compile
         run: npm run compile

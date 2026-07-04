@@ -1,0 +1,12 @@
+id: CI-IMPORT-001
+language: yaml
+severity: error
+rule:
+  regex: '^\s{2}[A-Za-z0-9_-]+:\s*$'
+negative_patterns:
+  - PYTHONPATH
+message: 'CI-IMPORT-001: GitHub Actions job is missing PYTHONPATH for workspace imports.'
+quick_fix:
+  label: Add PYTHONPATH env var to this job
+  insert_after_pattern: '(runs-on:.*)'
+  insert_text: "    env:\n      PYTHONPATH: ${{ github.workspace }}\n"

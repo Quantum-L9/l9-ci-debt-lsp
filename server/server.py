@@ -6,26 +6,26 @@ import logging
 from pathlib import Path
 
 from lsprotocol.types import (
-    TEXT_DOCUMENT_DID_OPEN,
-    TEXT_DOCUMENT_DID_SAVE,
-    TEXT_DOCUMENT_DID_CHANGE,
     CODE_ACTION,
     INITIALIZE,
+    TEXT_DOCUMENT_DID_CHANGE,
+    TEXT_DOCUMENT_DID_OPEN,
+    TEXT_DOCUMENT_DID_SAVE,
+    CodeActionOptions,
+    CodeActionParams,
+    DidChangeTextDocumentParams,
     DidOpenTextDocumentParams,
     DidSaveTextDocumentParams,
-    DidChangeTextDocumentParams,
-    CodeActionParams,
     InitializeParams,
     InitializeResult,
     ServerCapabilities,
     TextDocumentSyncKind,
-    CodeActionOptions,
 )
 from pygls.server import LanguageServer
 
-from rules_loader import RulesLoader
-from diagnostics import compute_diagnostics
 from code_actions import compute_code_actions
+from diagnostics import compute_diagnostics
+from rules_loader import RulesLoader
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
 log = logging.getLogger("l9-ci-debt-lsp")
