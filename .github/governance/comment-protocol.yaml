@@ -1,0 +1,36 @@
+# --- L9_META ---
+# l9_schema: 1
+# origin: l9-ci-kernel
+# engine: ci-debt
+# layer: [ci, governance]
+# tags: [comments, markers, protocol]
+# owner: platform
+# status: active
+# --- /L9_META ---
+# L9 canonical PR comment protocol (source: L9 CI Kernel comment_protocol).
+schema_version: 1.0.0
+principle: "Persistent comments are update-safe governance state."
+required_marker_format: "<!-- l9-{agent_id}-marker: v{version} -->"
+markers:
+  ci_summary: "<!-- l9-ci-summary-marker: v1 -->"
+  audit: "<!-- l9-audit-marker: v1 -->"
+  ai_review: "<!-- l9-ai-review-marker: v1 -->"
+  pr_size: "<!-- l9-pr-size-marker: v1 -->"
+  future_agent_review: "<!-- l9-agent-review-marker: v1 -->"
+update_rule:
+  - search_existing_comment_by_exact_marker
+  - update_existing_comment
+  - create_only_if_marker_absent
+  - never_match_by_vague_title
+  - never_create_duplicate_persistent_comments
+comment_limits:
+  github_limit_chars: 65536
+  required_buffer_chars: 200
+  max_comment_chars: 65336
+  max_line_chars: 500
+  truncation_required: true
+large_reports:
+  strategy:
+    - summarize_in_comment
+    - upload_artifact
+    - link_artifact

@@ -1,0 +1,54 @@
+# --- L9_META ---
+# l9_schema: 1
+# origin: l9-ci-kernel
+# engine: ci-debt
+# layer: [ci, governance]
+# tags: [labels, taxonomy, namespaced]
+# owner: platform
+# status: active
+# --- /L9_META ---
+# L9 CI namespaced label taxonomy (source: L9 CI Kernel).
+# Labels are routing hints, not truth; they must never downgrade touched risk.
+schema_version: 1.0.0
+namespace_required: true
+categories:
+  automation:
+    - automation:dependabot
+    - automation:coderabbit
+    - automation:perplexity
+    - automation:github-actions
+    - automation:gitguardian
+    - automation:sonarcloud
+    - automation:codex
+    - automation:l9-agent
+  type:
+    - type:ci
+    - type:security
+    - type:docs
+    - type:test
+    - type:deps
+    - type:refactor
+    - type:governance
+    - type:bug
+    - type:feature
+    - type:release
+  area:
+    - area:workflows
+    - area:l9
+    - area:contracts
+    - area:docker
+    - area:api
+    - area:kb
+    - area:python
+    - area:typing
+    - area:infra
+    - area:runtime
+    - area:transport
+  risk:
+    - risk:blocking
+    - risk:advisory
+    - risk:secret
+    - risk:deploy
+    - risk:contract
+    - risk:runtime
+    - risk:security

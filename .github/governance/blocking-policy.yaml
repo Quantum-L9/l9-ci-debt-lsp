@@ -1,0 +1,46 @@
+# --- L9_META ---
+# l9_schema: 1
+# origin: l9-ci-kernel
+# engine: ci-debt
+# layer: [ci, governance]
+# tags: [blocking, advisory, finding-policy]
+# owner: platform
+# status: active
+# --- /L9_META ---
+# L9 blocking-vs-advisory policy (source: L9 CI Kernel finding_policy).
+# Debt-node overlay: this node inherits significant historical debt. Inherited,
+# untouched findings are ADVISORY. Only a newly-introduced secret leak is wired
+# as a hard block in evaluate_ci_gate.py today ("build the rails first"); the
+# remaining hard_block_if_touched classes are declared here for the future
+# touched-risk detector and are surfaced as advisory until then.
+schema_version: 1.0.0
+node_class: ci_debt
+enforced_hard_block_today:
+  - secret_leak            # newly introduced, diff-scoped (gitleaks)
+declared_hard_block_if_touched:
+  - sql_injection
+  - auth_bypass
+  - security_boundary_weakening
+  - chassis_isolation_violation
+  - transport_packet_contract_break
+  - runtime_attestation_break
+  - contract_bound_change_without_contract_update
+  - malformed_governance_baseline
+  - unknown_high_or_critical_security_finding
+advisory_if_untouched:
+  - inherited_flatcase_findings
+  - inherited_docstring_findings
+  - inherited_architecture_smells
+  - historical_non_touched_high_findings
+  - low_risk_maintainability_issues
+never_hide:
+  - security_findings
+  - secret_findings
+  - contract_violations
+  - runtime_attestation_failures
+  - dependency_auth_failures
+fail_closed:
+  - diff_unknown
+  - malformed_baseline
+  - classifier_failure
+  - missing_required_ci_context

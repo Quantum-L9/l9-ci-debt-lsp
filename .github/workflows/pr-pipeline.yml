@@ -1,0 +1,403 @@
+# --- L9_META ---
+# l9_schema: 1
+# origin: l9-ci-kernel
+# engine: ci-debt
+# layer: [ci, governance]
+# tags: [pr-pipeline, classifier, gate, advisory-first]
+# owner: platform
+# status: active
+# --- /L9_META ---
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# PR Pipeline — canonical L9 merge gate for CI-debt nodes
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# Philosophy: "CI is a routing system, not a nightclub bouncer."
+#   1. Classify the PR (changed files primary, labels secondary).
+#   2. Run only the gates whose surface is present (skip cleanly otherwise).
+#   3. Block merge ONLY on a newly-introduced secret leak (diff-scoped gitleaks).
+#      All other gates are advisory on this debt node — inherited debt is
+#      surfaced, never merge-blocking ("build the rails first").
+#   4. Emit machine-readable governance state (ci_summary.json, agent payload)
+#      and one stable-marker PR comment (<!-- l9-ci-summary-marker: v1 -->).
+# The job named "PR Pipeline Gate" is the branch-protection required check.
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+name: PR Pipeline
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review, labeled, unlabeled]
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: 'PR number to evaluate'
+        required: false
+        type: string
+
+permissions:
+  contents: read
+  pull-requests: write
+
+concurrency:
+  group: pr-pipeline-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  PYTHON_VERSION: ${{ vars.PYTHON_VERSION || '3.12' }}
+  GITLEAKS_VERSION: '8.18.4'
+
+jobs:
+  # ────────────────────────────────────────────────────────────────────────
+  # CLASSIFY
+  # ────────────────────────────────────────────────────────────────────────
+  classify:
+    name: Classify PR
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      pr_class: ${{ steps.c.outputs.pr_class }}
+      diff_unknown: ${{ steps.c.outputs.diff_unknown }}
+      changed_count: ${{ steps.c.outputs.changed_count }}
+      labels: ${{ steps.c.outputs.labels }}
+      python_changed: ${{ steps.c.outputs.python_changed }}
+      docs_changed: ${{ steps.c.outputs.docs_changed }}
+      dependency_changed: ${{ steps.c.outputs.dependency_changed }}
+      semgrep_relevant: ${{ steps.c.outputs.semgrep_relevant }}
+      sbom_relevant: ${{ steps.c.outputs.sbom_relevant }}
+      security_sensitive_changed: ${{ steps.c.outputs.security_sensitive_changed }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v6
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - name: Classify changed files
+        id: c
+        run: python3 .github/scripts/classify_pr.py
+
+  # ────────────────────────────────────────────────────────────────────────
+  # SECRET SCAN — the only hard-blocking gate (diff-scoped, license-free CLI)
+  # ────────────────────────────────────────────────────────────────────────
+  secret_scan:
+    name: Secret Scan (new secrets only)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: classify
+    outputs:
+      findings: ${{ steps.scan.outputs.findings }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Install gitleaks CLI
+        run: |
+          set -euo pipefail
+          curl -sSL "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz" -o gitleaks.tar.gz
+          tar -xzf gitleaks.tar.gz gitleaks
+          chmod +x gitleaks
+      - name: Scan PR commit range for NEW secrets
+        id: scan
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set +e
+          CONFIG_ARG=""
+          [ -f .gitleaks.toml ] && CONFIG_ARG="--config .gitleaks.toml"
+          if [ -n "$BASE_SHA" ] && [ -n "$HEAD_SHA" ]; then
+            RANGE="${BASE_SHA}..${HEAD_SHA}"
+            echo "Scanning new commits in range $RANGE (inherited/historical secrets are advisory, not scanned here)"
+            ./gitleaks detect --source . --log-opts="$RANGE" $CONFIG_ARG \
+              --report-format json --report-path gitleaks.json --redact --no-banner
+          else
+            echo "No PR range available (push/dispatch) — scanning last commit only"
+            ./gitleaks detect --source . --log-opts="-1" $CONFIG_ARG \
+              --report-format json --report-path gitleaks.json --redact --no-banner
+          fi
+          CODE=$?
+          set -e
+          COUNT=0
+          if [ -f gitleaks.json ]; then
+            COUNT=$(python3 -c "import json,sys; d=json.load(open('gitleaks.json')); print(len(d) if isinstance(d,list) else 0)" 2>/dev/null || echo 0)
+          fi
+          echo "findings=$COUNT" >> "$GITHUB_OUTPUT"
+          echo "Newly-introduced secret findings: $COUNT"
+          if [ "$COUNT" -gt 0 ]; then
+            echo "::error::$COUNT newly-introduced secret(s) detected — this blocks merge."
+            exit 1
+          fi
+          exit 0
+      - name: Upload gitleaks report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gitleaks-report
+          path: gitleaks.json
+          if-no-files-found: ignore
+          retention-days: 30
+
+  # ────────────────────────────────────────────────────────────────────────
+  # VALIDATE — advisory (never blocks)
+  # ────────────────────────────────────────────────────────────────────────
+  validate:
+    name: Validate (YAML + Python syntax)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: classify
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v6
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - name: Install validation tools
+        run: pip install --quiet pyyaml
+      - name: Validate workflow YAML
+        run: |
+          python3 - <<'PY'
+          import glob, sys, yaml
+          bad = []
+          for f in glob.glob('.github/workflows/*.yml') + glob.glob('.github/workflows/*.yaml'):
+              try:
+                  yaml.safe_load(open(f, encoding='utf-8'))
+              except yaml.YAMLError as e:
+                  bad.append(f"{f}: {e}")
+          if bad:
+              for b in bad: print(f"::warning::{b}")
+              print("[WARN] workflow YAML issues found (advisory)")
+          else:
+              print("[PASS] all workflow YAML valid")
+          PY
+      - name: Check Python syntax (advisory)
+        run: |
+          set +e
+          FILES=$(find . -name '*.py' -not -path './.venv/*' -not -path './venv/*' -not -path './node_modules/*' -not -path './build/*' -not -path './dist/*' 2>/dev/null)
+          if [ -z "$FILES" ]; then
+            echo "[SKIP] no Python files present"
+            exit 0
+          fi
+          echo "$FILES" | xargs -r python3 -m py_compile 2>compile_err.txt
+          if [ -s compile_err.txt ]; then
+            echo "::warning::Python syntax issues (advisory, non-blocking):"
+            cat compile_err.txt
+          else
+            echo "[PASS] Python syntax OK"
+          fi
+          exit 0
+
+  # ────────────────────────────────────────────────────────────────────────
+  # LINT — advisory, only when Python present
+  # ────────────────────────────────────────────────────────────────────────
+  lint:
+    name: Lint (Ruff, advisory)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: classify
+    if: needs.classify.outputs.python_changed == 'true'
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v6
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - name: Install ruff
+        run: pip install --quiet ruff
+      - name: Ruff check (advisory)
+        run: |
+          ruff check . --output-format=github || echo "::warning::ruff findings (advisory)"
+          ruff format --check . || echo "::warning::ruff format drift (advisory)"
+
+  # ────────────────────────────────────────────────────────────────────────
+  # SEMGREP — advisory, only when Python present and rules exist
+  # ────────────────────────────────────────────────────────────────────────
+  semgrep:
+    name: Semgrep (advisory)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: classify
+    if: needs.classify.outputs.semgrep_relevant == 'true'
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v6
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - name: Run semgrep (advisory)
+        run: |
+          if [ ! -d .semgrep ]; then
+            echo "[SKIP] no .semgrep rules directory"
+            exit 0
+          fi
+          pip install --quiet semgrep
+          semgrep --config .semgrep/ --error --quiet || echo "::warning::semgrep findings (advisory)"
+
+  # ────────────────────────────────────────────────────────────────────────
+  # AUDIT — advisory, only when the L9 audit engine exists
+  # ────────────────────────────────────────────────────────────────────────
+  audit:
+    name: L9 Audit (advisory)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: classify
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v6
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - name: Run audit engine (advisory)
+        run: |
+          if [ ! -f tools/audit_engine.py ]; then
+            echo "[SKIP] tools/audit_engine.py not present"
+            exit 0
+          fi
+          pip install --quiet pyyaml
+          PYTHONPATH=. python3 tools/audit_engine.py --json > audit_results.json 2>&1 || echo "::warning::audit engine reported findings (advisory)"
+          head -c 2000 audit_results.json || true
+
+  # ────────────────────────────────────────────────────────────────────────
+  # SUPPLY CHAIN — advisory SBOM, only when a dependency manifest exists
+  # ────────────────────────────────────────────────────────────────────────
+  supply_chain:
+    name: Supply Chain / SBOM (advisory)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: classify
+    if: needs.classify.outputs.sbom_relevant == 'true'
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v6
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - name: Generate SBOM (advisory)
+        run: |
+          MANIFEST=""
+          for f in requirements-ci.txt requirements.txt pyproject.toml; do
+            [ -f "$f" ] && MANIFEST="$f" && break
+          done
+          if [ -z "$MANIFEST" ]; then
+            echo "[SKIP] no Python dependency manifest found"
+            exit 0
+          fi
+          pip install --quiet cyclonedx-bom || { echo "::warning::cyclonedx-bom install failed (advisory)"; exit 0; }
+          mkdir -p artifacts
+          if [ "$MANIFEST" = "pyproject.toml" ]; then
+            cyclonedx-py environment -o artifacts/sbom.json 2>/dev/null || echo "::warning::SBOM generation skipped (advisory)"
+          else
+            cyclonedx-py requirements "$MANIFEST" -o artifacts/sbom.json 2>/dev/null || echo "::warning::SBOM generation skipped (advisory)"
+          fi
+      - name: Upload SBOM
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sbom
+          path: artifacts/sbom.json
+          if-no-files-found: ignore
+          retention-days: 90
+
+  # ────────────────────────────────────────────────────────────────────────
+  # PR PIPELINE GATE — canonical merge gate + CI summary + agent payload
+  # ────────────────────────────────────────────────────────────────────────
+  pr_pipeline_gate:
+    name: PR Pipeline Gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    if: always()
+    needs:
+      - classify
+      - secret_scan
+      - validate
+      - lint
+      - semgrep
+      - audit
+      - supply_chain
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v6
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - name: Assemble CI context
+        id: ctx
+        env:
+          PR_CLASS: ${{ needs.classify.outputs.pr_class }}
+          DIFF_UNKNOWN: ${{ needs.classify.outputs.diff_unknown }}
+          CHANGED_COUNT: ${{ needs.classify.outputs.changed_count }}
+          LABELS_JSON: ${{ needs.classify.outputs.labels }}
+          SEMGREP_RELEVANT: ${{ needs.classify.outputs.semgrep_relevant }}
+          SBOM_RELEVANT: ${{ needs.classify.outputs.sbom_relevant }}
+          SEC_SENSITIVE: ${{ needs.classify.outputs.security_sensitive_changed }}
+          R_CLASSIFY: ${{ needs.classify.result }}
+          R_SECRET: ${{ needs.secret_scan.result }}
+          R_VALIDATE: ${{ needs.validate.result }}
+          R_LINT: ${{ needs.lint.result }}
+          R_SEMGREP: ${{ needs.semgrep.result }}
+          R_AUDIT: ${{ needs.audit.result }}
+          R_SUPPLY: ${{ needs.supply_chain.result }}
+          SECRET_FINDINGS: ${{ needs.secret_scan.outputs.findings }}
+          PR_NUMBER_INPUT: ${{ github.event.pull_request.number || github.event.inputs.pr_number }}
+        run: |
+          python3 - <<'PY'
+          import json, os
+          def b(name):
+              return os.environ.get(name, "false").lower() == "true"
+          try:
+              labels = json.loads(os.environ.get("LABELS_JSON") or "[]")
+          except Exception:
+              labels = []
+          surfaces = []
+          if b("SEMGREP_RELEVANT"): surfaces.append("code")
+          if b("SBOM_RELEVANT"): surfaces.append("dependencies")
+          if b("SEC_SENSITIVE"): surfaces.append("security")
+          try:
+              findings = int(os.environ.get("SECRET_FINDINGS") or 0)
+          except ValueError:
+              findings = 0
+          ctx = {
+              "pr_number": os.environ.get("PR_NUMBER_INPUT") or None,
+              "pr_class": os.environ.get("PR_CLASS", "unknown"),
+              "diff_unknown": b("DIFF_UNKNOWN"),
+              "changed_count": int(os.environ.get("CHANGED_COUNT") or 0),
+              "labels": labels,
+              "relevant_surfaces": surfaces,
+              "secret_findings": findings,
+              "results": {
+                  "classify": os.environ.get("R_CLASSIFY", "missing"),
+                  "secret_scan": os.environ.get("R_SECRET", "missing"),
+                  "validate": os.environ.get("R_VALIDATE", "missing"),
+                  "lint": os.environ.get("R_LINT", "missing"),
+                  "semgrep": os.environ.get("R_SEMGREP", "missing"),
+                  "audit": os.environ.get("R_AUDIT", "missing"),
+                  "supply_chain": os.environ.get("R_SUPPLY", "missing"),
+              },
+          }
+          json.dump(ctx, open("ci_context.json", "w"), indent=2, sort_keys=True)
+          print(json.dumps(ctx, indent=2, sort_keys=True))
+          PY
+      - name: Render CI summary
+        run: python3 .github/scripts/render_ci_summary.py
+      - name: Update marker comment
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number || github.event.inputs.pr_number }}
+          COMMENT_BODY_PATH: ci_summary.md
+          COMMENT_MARKER: "<!-- l9-ci-summary-marker: v1 -->"
+        run: python3 .github/scripts/update_marker_comment.py
+      - name: Build agent-review payload (advisory, loop disabled)
+        run: python3 .github/scripts/agent_review_payload.py
+      - name: Upload CI state artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: l9-ci-state
+          path: |
+            ci_context.json
+            ci_summary.json
+            ci_summary.md
+            agent_review_payload.json
+          if-no-files-found: ignore
+          retention-days: 30
+      - name: Evaluate gate (blocks only on new secret)
+        run: python3 .github/scripts/evaluate_ci_gate.py
+
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# END OF PR PIPELINE
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

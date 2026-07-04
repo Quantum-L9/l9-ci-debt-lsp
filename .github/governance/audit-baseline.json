@@ -1,0 +1,6 @@
+{
+  "schema_version": "1.0.0",
+  "node_class": "ci_debt",
+  "note": "Per-repo inherited-debt baseline. Empty by design: this node carries no imported Enrichment baseline. Populate with '<file>|<rule>|<message>' entries to downgrade a specific inherited finding to advisory. Newly-introduced findings are evaluated against blocking-policy.yaml regardless of this baseline.",
+  "baseline": []
+}

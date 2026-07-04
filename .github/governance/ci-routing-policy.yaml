@@ -1,0 +1,50 @@
+# --- L9_META ---
+# l9_schema: 1
+# origin: l9-ci-kernel
+# engine: ci-debt
+# layer: [ci, governance]
+# tags: [routing, classifier, policy]
+# owner: platform
+# status: active
+# --- /L9_META ---
+# L9 CI routing policy (source: L9 CI Kernel routing_policy).
+# Debt-node overlay: gates are surface-detecting; a gate whose surface is absent
+# is SKIPPED cleanly. On this node class every gate is advisory EXCEPT a
+# newly-introduced secret leak, which blocks the PR Pipeline Gate.
+schema_version: 1.0.0
+node_class: ci_debt
+classifier: .github/scripts/classify_pr.py
+changed_files_primary: true
+labels_secondary: true
+unknown_diff: fail_closed_conservative
+routing:
+  docs_only:
+    blocking: []
+    advisory: [markdown_lint, link_check, docs_consistency]
+    skip: [heavy_tests, broad_audit, docker_build]
+  ci_workflow:
+    blocking: []
+    advisory: [workflow_yaml_parse, classifier_integrity]
+    skip: [app_integration_tests]
+  dependency_python:
+    blocking: []
+    advisory: [dependency_review, sbom, lockfile_consistency]
+  docker:
+    blocking: []
+    advisory: [dockerfile_lint, image_secret_scan]
+  tests_only:
+    blocking: []
+    advisory: [pytest_targeted, lint_tests]
+  app_code:
+    blocking: []
+    advisory: [lint, type_check, tests, semgrep, touched_file_audit]
+  security:
+    blocking: [new_secret_leak]
+    advisory: [semgrep, dependency_review, touched_security_audit]
+  compliance:
+    blocking: []
+    advisory: [contract_control, architecture_compliance, schema_validation]
+  unknown_diff:
+    behavior: fail_closed_conservative
+    blocking: [new_secret_leak]
+    advisory: [validate, lint, semgrep, secret_scan]
