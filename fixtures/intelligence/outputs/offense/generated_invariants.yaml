@@ -1,0 +1,5 @@
+invariants:
+  - id: DOCTRINE
+    severity: error
+    regex: PacketEnvelope
+    description: PacketEnvelope is not the active transport type. Use TransportPacket or explicit compatibility adapter.

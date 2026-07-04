@@ -22,7 +22,6 @@ def compute_code_actions(
 ) -> list[CodeAction]:
     actions: list[CodeAction] = []
     uri = params.text_document.uri
-    cursor_line = params.range.start.line
 
     # Only offer fixes for diagnostics that overlap the cursor range
     relevant_rule_ids = {

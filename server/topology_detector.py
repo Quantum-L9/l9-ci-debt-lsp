@@ -8,7 +8,6 @@ Source: cryptoxdog/l9-ci-debt-intelligence/schemas/corpus.schema.json
 """
 from __future__ import annotations
 
-import re
 from pathlib import Path
 
 

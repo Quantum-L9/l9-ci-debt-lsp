@@ -1,0 +1,15 @@
+# Node
+node_modules/
+out/
+*.vsix
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+
+# OS
+.DS_Store

@@ -2,9 +2,9 @@
 from __future__ import annotations
 
 import json
+import sys
 import tempfile
 from pathlib import Path
-import sys
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "server"))
 
@@ -57,7 +57,6 @@ def test_rules_loader_loads_from_valid_json() -> None:
 
 def test_rules_loader_reload_replaces_rules() -> None:
     loader = RulesLoader(Path("/nonexistent/compiled_rules.json"))
-    initial_count = len(loader.rules)
 
     new_rule = {"id": "NEW-001", "language": ["yaml"], "topology": "gha_workflow",
                 "severity": "info", "patterns": ["pattern"], "negative_patterns": [],

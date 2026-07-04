@@ -1,22 +1,12 @@
 {
-  "name": "l9-ci-debt-lsp",
-  "displayName": "L9 CI-Debt LSP",
-  "description": "IDE-time diagnostics and quick fixes for L9 CI-debt patterns",
-  "version": "0.1.0",
-  "publisher": "cryptoxdog",
-  "engines": { "vscode": "^1.90.0" },
-  "categories": ["Linters"],
-  "keywords": ["ci", "tech-debt", "diagnostics", "l9"],
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/cryptoxdog/l9-ci-debt-lsp"
-  },
-  "main": "./out/extension.js",
   "activationEvents": [
     "onLanguage:yaml",
     "onLanguage:python",
     "onLanguage:toml",
     "workspaceContains:.github/workflows"
+  ],
+  "categories": [
+    "Linters"
   ],
   "contributes": {
     "commands": [
@@ -34,55 +24,79 @@
       }
     ],
     "configuration": {
-      "title": "L9 CI-Debt LSP",
       "properties": {
-        "l9CiDebt.serverPath": {
-          "type": "string",
-          "default": "",
-          "description": "Absolute path to server.py. Leave empty to use bundled server."
-        },
-        "l9CiDebt.rulesPath": {
-          "type": "string",
-          "default": "",
-          "description": "Path to compiled_rules.json. Leave empty to use bundled rules."
+        "l9CiDebt.enableDoctrineDiagnostics": {
+          "default": true,
+          "description": "Emit diagnostics for doctrine violations such as PacketEnvelope transport usage.",
+          "type": "boolean"
         },
         "l9CiDebt.intelligenceOutputsPath": {
-          "type": "string",
           "default": "",
-          "description": "Path to l9-ci-debt-intelligence outputs/ dir for corpus refresh."
+          "description": "Path to l9-ci-debt-intelligence outputs/ dir for corpus refresh.",
+          "type": "string"
         },
-        "l9CiDebt.enableDoctrineDiagnostics": {
-          "type": "boolean",
-          "default": true,
-          "description": "Emit diagnostics for DOCTRINE violations (PacketEnvelope transport)."
+        "l9CiDebt.rulesPath": {
+          "default": "",
+          "description": "Path to compiled_rules.json. Leave empty to use bundled rules.",
+          "type": "string"
+        },
+        "l9CiDebt.serverPath": {
+          "default": "",
+          "description": "Absolute path to server.py. Leave empty to use bundled server.",
+          "type": "string"
         }
-      }
+      },
+      "title": "L9 CI-Debt LSP"
     }
-  },
-  "scripts": {
-    "vscode:prepublish": "npm run compile",
-    "compile": "tsc -p ./",
-    "watch": "tsc -watch -p ./",
-    "lint": "eslint src --ext ts",
-    "test": "jest"
   },
   "dependencies": {
     "vscode-languageclient": "^9.0.1"
   },
+  "description": "IDE-time diagnostics and quick fixes for L9 CI-debt patterns",
   "devDependencies": {
+    "@types/jest": "^29.5.14",
     "@types/node": "^20.0.0",
     "@types/vscode": "^1.90.0",
     "@typescript-eslint/eslint-plugin": "^7.0.0",
     "@typescript-eslint/parser": "^7.0.0",
+    "@vscode/test-electron": "^2.4.0",
     "eslint": "^8.57.0",
     "jest": "^29.0.0",
     "ts-jest": "^29.0.0",
-    "typescript": "^5.4.0",
-    "@vscode/test-electron": "^2.4.0"
+    "typescript": "^5.4.0"
+  },
+  "displayName": "L9 CI-Debt LSP",
+  "engines": {
+    "vscode": "^1.90.0"
   },
   "jest": {
     "preset": "ts-jest",
     "testEnvironment": "node",
-    "testMatch": ["**/tests/**/*.ts"]
-  }
+    "testMatch": [
+      "**/tests/**/*.ts"
+    ]
+  },
+  "keywords": [
+    "ci",
+    "tech-debt",
+    "diagnostics",
+    "l9"
+  ],
+  "main": "./out/extension.js",
+  "name": "l9-ci-debt-lsp",
+  "publisher": "cryptoxdog",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Quantum-L9/l9-ci-debt-lsp"
+  },
+  "scripts": {
+    "compile": "tsc -p ./",
+    "lint": "eslint src --ext ts",
+    "refresh:rules:fixture": "python server/refresh_rules.py --intelligence-outputs fixtures/intelligence/outputs --rules-out rules/compiled_rules.json --lock-out rules/compiled_rules.lock.json",
+    "test": "jest --passWithNoTests",
+    "validate:rules": "python server/validate_compiled_rules.py --rules rules/compiled_rules.json --lock rules/compiled_rules.lock.json",
+    "vscode:prepublish": "npm run compile",
+    "watch": "tsc -watch -p ./"
+  },
+  "version": "0.1.0"
 }
