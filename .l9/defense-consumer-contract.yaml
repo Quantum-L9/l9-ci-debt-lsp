@@ -1,0 +1,65 @@
+schema: l9.lsp-defense-consumer-contract/v1
+metadata:
+  repository: Quantum-L9/l9-ci-debt-lsp
+  phase: LSP-P0
+  status: authoritative
+consumes:
+  protocol: l9.debt-defense/v1
+  owner: Quantum-L9/l9-ci-debt-intelligence
+required_pack_fields:
+  - pack_id
+  - version
+  - corpus_snapshot
+  - analysis_run
+  - compilation_id
+  - compiler_version
+  - taxonomy_version
+  - SDK_contract_version
+  - compatibility
+  - rules
+  - checksums
+  - signature_metadata
+  - limitations
+validation_order:
+  - parse_publication_manifest
+  - validate_publication_manifest_schema
+  - verify_archive_checksum
+  - validate_signature_metadata
+  - verify_detached_signature
+  - safely_extract_archive
+  - validate_defense_pack_schema
+  - validate_compatibility
+  - validate_runtime_rule_projection
+  - stage_installation
+  - activate_explicit_version
+activation_invariant: >
+  Installation never changes the active pack. Activation is a separate,
+  explicit and atomic operation.
+failure_invariant: >
+  Rejected, corrupt, unsigned, incompatible, or incomplete packs never replace
+  the active or previous-known-good pack.
+compatibility:
+  required:
+    - SDK contract compatibility
+    - LSP consumer contract compatibility
+    - platform compatibility
+    - supported runtime rule kinds
+  unsupported_rule_behavior:
+    - report unsupported rule identity
+    - do not silently drop the rule
+    - do not report successful full evaluation
+    - preserve pack compatibility limitation
+runtime_projection:
+  input: immutable defense pack
+  output: immutable runtime rule registry
+  permitted_transformations:
+    - deserialize rule representation
+    - build indexes
+    - cache normalized matcher structures
+    - map severity for editor presentation
+  prohibited_transformations:
+    - change canonical rule meaning
+    - generate new authoritative rules
+    - alter canonical rule identity
+    - infer missing corpus evidence
+    - promote candidate rules

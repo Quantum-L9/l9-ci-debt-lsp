@@ -1,0 +1,213 @@
+schema: l9.lsp-pack-protocol-contract/v1
+metadata:
+  repository: Quantum-L9/l9-ci-debt-lsp
+  phase: LSP-P1
+  status: authoritative
+input:
+  publication_manifest:
+    protocol: l9.defense-publication/v1
+    required: true
+  archive:
+    format: tar.gz
+    required: true
+  detached_signature:
+    algorithm: Ed25519
+    signed_value: archive_sha256
+    required: true
+  public_key:
+    source: trusted-key-registry
+    embedded_key_behavior: must_match_trusted_key
+verification_order:
+  - parse_manifest
+  - validate_manifest_schema
+  - validate_manifest_semantics
+  - validate_trusted_signer
+  - calculate_archive_sha256
+  - compare_archive_sha256
+  - verify_detached_signature
+  - inspect_archive_limits
+  - reject_unsafe_archive_paths
+  - extract_to_private_staging_directory
+  - validate_required_archive_members
+  - validate_checksums_document
+  - verify_member_checksums
+  - validate_defense_pack_schema
+  - validate_pack_identity_consistency
+  - validate_compatibility
+  - validate_retirement_state
+  - atomically_install_content_addressed_pack
+trust:
+  registry: state/trust/trusted-keys.json
+  default_behavior: reject_unknown_signer
+  key_identity:
+    algorithm: SHA-256
+    input: raw_Ed25519_public_key
+    prefix: key_
+  requirements:
+    - key enabled
+    - key algorithm is Ed25519
+    - key usage includes defense-pack-verification
+    - manifest signer identity matches trusted key identity
+    - embedded public key matches trusted registry key
+  prohibited:
+    - trust on first use
+    - implicit key enrollment
+    - private keys in repository
+    - private keys in runtime state
+    - accepting disabled keys
+    - accepting unknown keys
+archive_limits:
+  maximum_archive_bytes: 52428800
+  maximum_uncompressed_bytes: 209715200
+  maximum_member_count: 10000
+  maximum_single_member_bytes: 52428800
+  maximum_path_length: 512
+  maximum_path_depth: 20
+archive_security:
+  prohibited_members:
+    - symbolic_links
+    - hard_links
+    - devices
+    - fifos
+    - sockets
+    - absolute_paths
+    - parent_directory_traversal
+    - duplicate_paths
+    - case_folded_duplicate_paths
+  extraction:
+    destination: private_staging_directory
+    file_mode: "0644"
+    directory_mode: "0755"
+    preserve_archive_ownership: false
+    preserve_archive_permissions: false
+    preserve_archive_timestamps: false
+installation:
+  root: state/packs
+  identity: pack_id
+  immutable: true
+  required_state:
+    - manifest.json
+    - defense-pack.json
+    - compatibility.json
+    - checksums.json
+    - installation.json
+    - archive.sha256
+  duplicate_behavior:
+    same_content: idempotent_success
+    different_content_same_pack_id: reject_identity_collision
+  atomicity:
+    staging_directory: required
+    fsync_files: required
+    fsync_directories: required
+    final_operation: atomic_rename
+activation:
+  separate_from_installation: true
+  explicit_pack_id_required: true
+  state_root: state/activation
+  active_pointer: active.json
+  previous_pointer: previous-known-good.json
+  history: activation-history.jsonl
+  atomicity:
+    temporary_file_same_filesystem: required
+    fsync_file: required
+    atomic_replace: required
+    fsync_parent_directory: required
+  preconditions:
+    - pack installed
+    - pack integrity valid
+    - pack compatible
+    - pack not retired
+  failure_behavior: preserve_current_active_state
+rollback:
+  target: previous-known-good
+  recompilation: prohibited
+  network_dependency: prohibited
+  preconditions:
+    - previous-known-good exists
+    - previous-known-good pack integrity valid
+    - previous-known-good pack compatible
+    - previous-known-good pack not retired
+  behavior:
+    - atomically activate previous-known-good
+    - move former active pack into previous-known-good
+    - append activation history
+  failure_behavior: preserve_current_active_state
+retirement:
+  state_file: state/retirement/retired-packs.json
+  append_only_semantics: required
+  activation_behavior: reject
+  installed_pack_behavior: retain_for_audit
+  active_pack_behavior:
+    - report_retired_active_state
+    - do_not_silently_switch
+    - require_explicit_rollback_or_activation
+quarantine:
+  root: state/quarantine
+  identity:
+    algorithm: SHA-256
+    inputs:
+      - archive_sha256
+      - manifest_sha256
+      - reason_code
+  contents:
+    - rejection.json
+    - publication-manifest.json
+    - archive-reference.json
+  archive_copy:
+    default: false
+    reason: avoid duplicating untrusted large artifacts
+  required_reasons:
+    - malformed_manifest
+    - unsupported_manifest_protocol
+    - archive_too_large
+    - archive_hash_mismatch
+    - unknown_signer
+    - disabled_signer
+    - signer_key_mismatch
+    - signature_invalid
+    - unsafe_archive
+    - required_member_missing
+    - member_checksum_mismatch
+    - invalid_defense_pack
+    - pack_identity_mismatch
+    - incompatible_pack
+    - retired_pack
+    - immutable_identity_collision
+runtime_state:
+  root_environment_variable: L9_DEBT_LSP_STATE_ROOT
+  default:
+    linux: ~/.local/state/l9/debt-lsp
+    macOS: ~/Library/Application Support/L9/debt-lsp
+    windows: "%LOCALAPPDATA%/L9/debt-lsp"
+  permissions:
+    directories: owner_read_write_execute
+    files: owner_read_write
+  sensitive_content:
+    private_keys: prohibited
+    source_content: prohibited
+    raw_logs: prohibited
+    absolute_workspace_paths: prohibited
+phase:
+  id: LSP-P1
+  status: implemented
+  includes:
+    - trusted-key registry
+    - manifest validation
+    - archive hash verification
+    - Ed25519 verification
+    - safe extraction
+    - immutable installation
+    - compatibility rejection
+    - retired-pack rejection
+    - explicit activation
+    - previous-known-good retention
+    - rollback
+    - startup recovery
+    - quarantine metadata
+  excludes:
+    - network pack discovery
+    - automatic update
+    - SDK AnalysisSession
+    - diagnostics
+    - code actions
+    - telemetry transport

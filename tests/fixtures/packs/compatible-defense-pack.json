@@ -1,0 +1,58 @@
+{
+  "schema_version": "l9.debt-defense/v1",
+  "pack_id": "pack_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "version": "1.0.0",
+  "corpus_snapshot": "cs_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "analysis_run": "ar_cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+  "compilation_id": "compile_dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+  "compiler_version": "1.0.0",
+  "taxonomy_version": "1.0.0",
+  "SDK_contract_version": "l9.integration-contract/v1",
+  "compatibility": {
+    "schema_version": "l9.defense-compatibility/v1",
+    "sdk": {
+      "contract": "l9.integration-contract/v1",
+      "minimum_version": "0.1.0",
+      "maximum_version_exclusive": "2.0.0"
+    },
+    "core": {
+      "minimum_contract": "l9.core-defense-consumer/v1"
+    },
+    "lsp": {
+      "minimum_contract": "l9.lsp-defense-consumer/v1"
+    },
+    "platforms": [
+      "linux-x86_64",
+      "linux-arm64",
+      "darwin-x86_64",
+      "darwin-arm64",
+      "windows-x86_64"
+    ],
+    "limitations": []
+  },
+  "rules": [
+    {
+      "canonical_rule_id": "l9.debt.example",
+      "candidate_id": "candidate_eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+      "kind": "ast_grep",
+      "score": 4.5,
+      "source_path": "rules/example.yaml",
+      "source_sha256": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+      "lineage": {
+        "corpus_snapshot": "cs_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "analysis_run": "ar_cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "compilation_id": "compile_dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+        "recurrence_fingerprint": "1111111111111111111111111111111111111111111111111111111111111111"
+      }
+    }
+  ],
+  "checksums": {
+    "rules/example.yaml": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+  },
+  "signature_metadata": {
+    "required": true,
+    "algorithm": "Ed25519",
+    "signed_value": "archive_sha256"
+  },
+  "limitations": []
+}

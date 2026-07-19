@@ -1,0 +1,72 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "l9://lsp/analysis-request/v1",
+  "title": "L9 LSP Incremental Analysis Request",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "request_id",
+    "workspace_id",
+    "workspace_generation",
+    "document_id",
+    "document_uri",
+    "document_version",
+    "language_id",
+    "active_pack_id",
+    "active_pack_version",
+    "created_at",
+    "limitations"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "l9.analysis-request/v1"
+    },
+    "request_id": {
+      "type": "string",
+      "pattern": "^request_[0-9a-f]{64}$"
+    },
+    "workspace_id": {
+      "type": "string",
+      "pattern": "^workspace_[0-9a-f]{64}$"
+    },
+    "workspace_generation": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "document_id": {
+      "type": "string",
+      "pattern": "^doc_[0-9a-f]{64}$"
+    },
+    "document_uri": {
+      "type": "string",
+      "minLength": 1
+    },
+    "document_version": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "language_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "active_pack_id": {
+      "type": "string",
+      "pattern": "^pack_[0-9a-f]{64}$"
+    },
+    "active_pack_version": {
+      "type": "string",
+      "minLength": 1
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "limitations": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  }
+}

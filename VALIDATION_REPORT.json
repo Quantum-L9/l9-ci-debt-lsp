@@ -1,0 +1,35 @@
+{
+  "generated_at_utc": "2026-07-18T19:39:26.666736+00:00",
+  "integrated_phases": [
+    "LSP-P0",
+    "LSP-P1",
+    "LSP-P2",
+    "LSP-P3",
+    "LSP-P4",
+    "LSP-P5"
+  ],
+  "integration_corrections": [
+    "Normalized smart-quote and dash corruption introduced by markdown transport.",
+    "Repaired one transport-damaged architecture test indentation and Python dunder identifiers.",
+    "Reconciled the superseded LSP-P0 capability assertion to the final LSP-P5 capability surface.",
+    "Added test package markers to prevent collision with an ambient third-party tests package.",
+    "Corrected final-acceptance YAML block-scalar indentation.",
+    "Resolved final strict typing findings without changing repository boundaries or semantics."
+  ],
+  "repository": "Quantum-L9/l9-ci-debt-lsp",
+  "schema_version": "l9.repository-validation-report/v1",
+  "source_traceability": "docs/source",
+  "validation": {
+    "json_parse": "passed",
+    "mypy_strict": "passed",
+    "pytest": {
+      "status": "passed",
+      "tests": 72
+    },
+    "python_compileall": "passed",
+    "ruff_check": "passed",
+    "ruff_format_check": "passed",
+    "yaml_parse": "passed"
+  },
+  "version": "1.0.0"
+}

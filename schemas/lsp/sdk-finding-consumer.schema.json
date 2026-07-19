@@ -1,0 +1,175 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "l9://lsp/sdk-finding-consumer/v1",
+  "title": "L9 SDK Finding Consumer Contract",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "schema_version",
+    "finding_id",
+    "canonical_rule_id",
+    "provider_rule_id",
+    "message",
+    "severity",
+    "source_location",
+    "evidence",
+    "limitations"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "l9.sdk-finding/v1"
+    },
+    "finding_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512
+    },
+    "canonical_rule_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512
+    },
+    "provider_rule_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512
+    },
+    "message": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 2000
+    },
+    "severity": {
+      "enum": [
+        "critical",
+        "error",
+        "warning",
+        "information",
+        "info",
+        "hint",
+        "unknown"
+      ]
+    },
+    "source_location": {
+      "$ref": "#/$defs/sourceLocation"
+    },
+    "evidence": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/evidence"
+      },
+      "maxItems": 100
+    },
+    "related_locations": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/relatedLocation"
+      },
+      "maxItems": 100
+    },
+    "tags": {
+      "type": "array",
+      "items": {
+        "enum": [
+          "deprecated",
+          "unnecessary"
+        ]
+      },
+      "uniqueItems": true
+    },
+    "limitations": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "uniqueItems": true
+    }
+  },
+  "$defs": {
+    "sourceLocation": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "document_identity",
+        "uri",
+        "start_line",
+        "start_character",
+        "end_line",
+        "end_character"
+      ],
+      "properties": {
+        "document_identity": {
+          "type": "string",
+          "minLength": 1
+        },
+        "uri": {
+          "type": "string",
+          "minLength": 1
+        },
+        "start_line": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "start_character": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "end_line": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "end_character": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "evidence": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "kind",
+        "summary"
+      ],
+      "properties": {
+        "kind": {
+          "type": "string",
+          "minLength": 1
+        },
+        "summary": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1000
+        },
+        "source_location": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/sourceLocation"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
+    },
+    "relatedLocation": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "message",
+        "source_location"
+      ],
+      "properties": {
+        "message": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1000
+        },
+        "source_location": {
+          "$ref": "#/$defs/sourceLocation"
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,242 @@
+schema: l9.repo-spec/v1
+metadata:
+  repository: Quantum-L9/l9-ci-debt-lsp
+  repository_url: https://github.com/Quantum-L9/l9-ci-debt-lsp
+  spec_path: .l9/repo-spec.yaml
+  spec_version: 1.0.0
+  status: authoritative
+  phase: LSP-P0
+  phase_name: boundary_cleanup
+identity:
+  name: l9-ci-debt-lsp
+  constellation_role: low_latency_prevention_edge
+  architectural_plane: editor_serving
+  operating_model:
+    - offline_first
+    - low_latency
+    - immutable_rule_pack_consumer
+mission: >
+  Serve deterministic diagnostics and bounded code actions in developer
+  editors using validated prevention packs and the SDK incremental API.
+ownership:
+  owns:
+    - LSP protocol
+    - JSON-RPC lifecycle
+    - VS Code client behavior
+    - document synchronization
+    - workspace lifecycle
+    - diagnostics presentation
+    - related information presentation
+    - code action presentation
+    - WorkspaceEdit construction
+    - editor severity mapping
+    - rule-pack installation
+    - rule-pack activation
+    - active pack cache
+    - previous-known-good pack cache
+    - incremental scheduling
+    - debounce
+    - cancellation
+    - stale-result suppression
+    - editor telemetry extensions
+  does_not_own:
+    - canonical fleet corpus
+    - corpus ingestion
+    - corpus normalization
+    - corpus mining
+    - prevention-rule generation
+    - canonical SDK evidence schemas
+    - canonical SDK finding schemas
+    - canonical rule semantics
+    - CI orchestration
+    - policy promotion
+    - autonomous multi-file repair
+    - branch mutation
+    - source repository mutation
+dependency_contract:
+  required:
+    - Quantum-L9/l9-ci-sdk
+  artifact_dependency:
+    - Quantum-L9/l9-ci-debt-intelligence defense pack
+  must_not_depend_on:
+    - Quantum-L9/l9-ci-core
+    - Quantum-L9/l9-ci-debt-resolver
+    - Quantum-L9/PR_Repair
+    - Debt Intelligence corpus internals
+  invariant: >
+    Normal diagnostics never require access to the canonical fleet corpus.
+identity_preservation:
+  must_preserve:
+    - finding_id
+    - canonical_rule_id
+    - provider_rule_id
+    - source_location
+    - snapshot_or_document_identity
+    - rule_pack_version
+    - corpus_snapshot
+  may_transform:
+    - diagnostic severity presentation
+    - editor message formatting
+    - code action labels
+  must_not_transform:
+    - canonical rule semantics
+    - finding fingerprint meaning
+    - policy mode meaning
+rule_pack_runtime:
+  protocol: l9.debt-defense/v1
+  responsibilities:
+    - locate published pack
+    - verify checksum
+    - verify signature metadata
+    - validate schema
+    - validate SDK compatibility
+    - install atomically
+    - retain previous known-good pack
+    - activate explicit version
+    - report active version
+  required_state:
+    - pack_id
+    - pack_version
+    - corpus_snapshot
+    - compiler_version
+    - taxonomy_version
+    - SDK_contract_version
+    - compatibility_state
+    - activation_time
+  prohibited:
+    - ingest raw corpus
+    - mine patterns
+    - generate authoritative rules
+    - silently recompile rules
+    - recompile from local telemetry
+    - consume mutable Intelligence outputs
+    - activate an unverified pack
+incremental_analysis:
+  SDK_interface: AnalysisSession
+  operations:
+    - open_workspace
+    - open_document
+    - update_document
+    - evaluate_document
+    - close_document
+  requirements:
+    - in-memory document overlay
+    - document-version consistency
+    - cancellation tokens
+    - bounded dependency invalidation
+    - no SQLite write per keystroke
+    - no network dependency
+    - partial parse support
+    - deterministic diagnostics
+  stale_result_rule: >
+    Results produced for an older document version are discarded.
+latency_budgets_ms:
+  document_local:
+    p50: 50
+    p95: 200
+  bounded_workspace:
+    p95: 1000
+  pack_activation:
+    p95: 3000
+schema_federation:
+  references_SDK:
+    - source-location
+    - finding
+    - evidence
+  references_Intelligence:
+    - defense-pack
+  prohibition: >
+    Canonical SDK findings and Intelligence corpus schemas are not duplicated.
+diagnostics:
+  deterministic_inputs:
+    - document_text
+    - document_version
+    - workspace_capability_profile
+    - active_rule_pack
+    - SDK_incremental_semantics
+  incomplete_analysis:
+    behavior:
+      - publish limitations
+      - avoid false PASS
+      - suppress unsafe fixes
+      - retain known-good state where protocol-safe
+code_actions:
+  allowed:
+    - deterministic template fix
+    - validated structural rewrite
+    - navigation
+    - explanation
+  prohibited:
+    - autonomous multi-file repair
+    - unbounded model-generated patches
+    - protected-path mutation
+    - arbitrary command execution
+    - branch operations
+    - Git mutation
+telemetry:
+  policy: opt_in_or_organization_controlled
+  consumer: Quantum-L9/l9-ci-debt-intelligence
+  emits:
+    - rule_pack_version
+    - canonical_rule_id
+    - diagnostic_shown
+    - diagnostic_dismissed
+    - quick_fix_offered
+    - quick_fix_applied
+    - false_positive_disposition
+    - latency_bucket
+  excludes:
+    - source content
+    - secret values
+    - absolute paths
+    - developer identity
+    - full repository graph
+    - raw corpus records
+security:
+  packs:
+    checksum_required: true
+    signature_required: true
+    atomic_installation: true
+    previous_known_good_required: true
+    incompatible_pack_behavior: reject_without_replacing_active_pack
+  workspace:
+    external_commands_from_rules: prohibited
+    arbitrary_file_writes: prohibited
+    network_by_default: false
+  trust_boundaries:
+    - Workspace content is untrusted.
+    - Downloaded packs are untrusted until validated.
+    - Telemetry is minimized and redacted.
+phase:
+  id: LSP-P0
+  name: boundary_cleanup
+  status: implemented
+  includes:
+    - authoritative ownership boundary
+    - serving-only package foundation
+    - defense-pack consumer contract
+    - SDK schema-reference registry
+    - compatibility policy
+    - pack descriptor model
+    - pack compatibility evaluator
+    - architecture enforcement tests
+    - minimal VS Code client foundation
+    - minimal Python LSP server foundation
+  excludes:
+    - pack download
+    - archive extraction
+    - checksum verification implementation
+    - cryptographic verification implementation
+    - atomic activation
+    - previous-known-good rollback implementation
+    - SDK AnalysisSession implementation
+    - diagnostic evaluation
+    - production code actions
+    - telemetry transport
+removed_legacy_behavior:
+  - corpus compiler
+  - mutable Intelligence output ingestion
+  - locally generated authoritative rules
+  - Intelligence repository path configuration
+  - refresh-corpus command
+  - direct corpus access

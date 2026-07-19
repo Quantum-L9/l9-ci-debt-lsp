@@ -1,0 +1,26 @@
+{
+  "schema": "l9.lsp-sdk-schema-registry/v1",
+  "sdk": {
+    "repository": "Quantum-L9/l9-ci-sdk",
+    "integration_contract": "l9.integration-contract/v1"
+  },
+  "references": {
+    "source-location": {
+      "uri": "l9://sdk/source-location/v1",
+      "owner": "Quantum-L9/l9-ci-sdk"
+    },
+    "evidence": {
+      "uri": "l9://sdk/evidence/v1",
+      "owner": "Quantum-L9/l9-ci-sdk"
+    },
+    "finding": {
+      "uri": "l9://sdk/finding/v1",
+      "owner": "Quantum-L9/l9-ci-sdk"
+    }
+  },
+  "policy": {
+    "local_schema_copies_allowed": false,
+    "private_sdk_imports_allowed": false,
+    "unknown_sdk_contract_behavior": "reject"
+  }
+}

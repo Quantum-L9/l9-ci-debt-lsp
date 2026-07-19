@@ -1,0 +1,90 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "l9://lsp/trusted-key-registry/v1",
+  "title": "L9 LSP Trusted Key Registry",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "keys"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "l9.trusted-key-registry/v1"
+    },
+    "keys": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/key"
+      }
+    }
+  },
+  "$defs": {
+    "key": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "key_id",
+        "algorithm",
+        "public_key",
+        "enabled",
+        "usages",
+        "issuer",
+        "limitations"
+      ],
+      "properties": {
+        "key_id": {
+          "type": "string",
+          "pattern": "^key_[0-9a-f]{64}$"
+        },
+        "algorithm": {
+          "const": "Ed25519"
+        },
+        "public_key": {
+          "type": "string",
+          "minLength": 40
+        },
+        "enabled": {
+          "type": "boolean"
+        },
+        "usages": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "defense-pack-verification"
+            ]
+          },
+          "contains": {
+            "const": "defense-pack-verification"
+          },
+          "uniqueItems": true
+        },
+        "issuer": {
+          "type": "string",
+          "minLength": 1
+        },
+        "not_before": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time"
+        },
+        "not_after": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time"
+        },
+        "limitations": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "uniqueItems": true
+        }
+      }
+    }
+  }
+}

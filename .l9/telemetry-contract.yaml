@@ -1,0 +1,307 @@
+schema: l9.lsp-telemetry-contract/v1
+metadata:
+  repository: Quantum-L9/l9-ci-debt-lsp
+  phase: LSP-P5
+  status: authoritative
+  final_repository_phase: true
+authority:
+  lsp_owns:
+    - telemetry consent evaluation
+    - local event construction
+    - privacy validation
+    - local durable buffering
+    - batching
+    - transport retries
+    - retention
+    - telemetry health
+    - event emission from editor lifecycle
+  intelligence_owns:
+    - effectiveness aggregation
+    - recurrence analysis
+    - false-positive analysis
+    - rule quality assessment
+    - candidate refinement
+    - promotion and retirement decisions
+  prohibited:
+    - telemetry-generated local rule mutation
+    - telemetry-controlled pack activation
+    - telemetry-controlled policy promotion
+    - telemetry blocking diagnostics
+    - telemetry blocking code actions
+    - telemetry redefining canonical findings
+policy:
+  default: disabled
+  accepted_modes:
+    - disabled
+    - local_only
+    - user_opt_in
+    - organization_controlled
+  organization_controlled:
+    policy_source: signed_local_configuration
+    user_override:
+      may_enable_when_org_disabled: false
+      may_disable_when_org_required: false
+  user_opt_in:
+    explicit_consent_required: true
+    implied_consent_prohibited: true
+  disabled:
+    event_construction: minimized
+    persistence: prohibited
+    delivery: prohibited
+privacy:
+  allowed_identity:
+    - telemetry_installation_id
+    - session_id
+    - event_id
+    - canonical_rule_id
+    - provider_rule_id
+    - finding_id
+    - rule_pack_id
+    - rule_pack_version
+    - corpus_snapshot
+    - analysis_request_id
+    - action_id
+    - template_id
+  telemetry_installation_id:
+    generation: random_256_bit
+    local_only_mapping: true
+    rotation_supported: true
+    linked_to_developer_identity: false
+  prohibited_fields:
+    - source_content
+    - source_snippet
+    - document_text
+    - replacement_text
+    - preview_diff
+    - diagnostic_message
+    - evidence_summary
+    - related_information_message
+    - absolute_path
+    - relative_path
+    - document_uri
+    - workspace_uri
+    - repository_name
+    - repository_url
+    - repository_remote
+    - branch_name
+    - commit_sha
+    - developer_name
+    - developer_email
+    - account_id
+    - machine_hostname
+    - machine_serial
+    - IP_address
+    - secret_value
+    - access_token
+    - raw_log
+    - raw_exception
+    - raw_corpus_record
+    - repository_graph
+  prohibited_value_patterns:
+    - absolute_unix_path
+    - absolute_windows_path
+    - file_uri
+    - email_address
+    - private_key
+    - bearer_token
+    - GitHub_token
+    - AWS_access_key
+    - generic_secret_assignment
+events:
+  common_required:
+    - schema_version
+    - event_id
+    - event_type
+    - occurred_at
+    - installation_id
+    - session_id
+    - client_name
+    - client_version
+    - lsp_version
+    - rule_pack_id
+    - rule_pack_version
+    - corpus_snapshot
+    - limitations
+  supported:
+    - diagnostic_shown
+    - diagnostic_dismissed
+    - false_positive_disposition
+    - quick_fix_offered
+    - quick_fix_applied
+    - quick_fix_rejected
+    - quick_fix_outcome
+    - rule_outcome
+    - latency_bucket
+    - pack_activated
+    - pack_rollback
+  dispositions:
+    allowed:
+      - false_positive
+      - not_actionable
+      - accepted_risk
+      - duplicate
+      - obsolete
+      - valid_finding
+      - unknown
+    free_text: prohibited
+  quick_fix_outcomes:
+    allowed:
+      - resolved
+      - finding_persisted
+      - new_findings_introduced
+      - edit_reverted
+      - outcome_unknown
+  rule_outcomes:
+    allowed:
+      - finding_present
+      - finding_resolved
+      - finding_persisted
+      - finding_dismissed
+      - finding_dispositioned
+  latency:
+    raw_duration_delivery: prohibited
+    buckets:
+      - lt_25ms
+      - 25_49ms
+      - 50_99ms
+      - 100_199ms
+      - 200_499ms
+      - 500_999ms
+      - 1_2s
+      - 2_5s
+      - gt_5s
+      - cancelled
+      - timed_out
+storage:
+  root: state/telemetry
+  queue: events
+  dead_letter: dead-letter
+  configuration: telemetry-policy.json
+  installation_identity: installation-id.json
+  delivery_state: delivery-state.json
+  event_format: canonical_json
+  file_identity: event_id
+  immutable: true
+  atomic_write: true
+  file_permissions: owner_read_write
+  directory_permissions: owner_read_write_execute
+  limits:
+    maximum_event_bytes: 16384
+    maximum_queued_events: 10000
+    maximum_queue_bytes: 52428800
+    maximum_event_age_days: 30
+    maximum_dead_letter_events: 1000
+  overflow_behavior:
+    strategy: delete_oldest_delivered_or_queued_events
+    disclosure: telemetry_health_limitation
+    editor_runtime_behavior: continue
+delivery:
+  enabled_modes:
+    - user_opt_in
+    - organization_controlled
+  local_only_behavior:
+    persist: true
+    deliver: false
+  transport:
+    protocol: HTTPS
+    content_type: application/x-ndjson
+    compression: gzip
+    redirects: prohibited
+    endpoint_allowlist_required: true
+    TLS_verification_required: true
+    client_certificates: optional
+    authorization:
+      static_bearer_token_storage: prohibited
+      environment_injection: allowed
+      OS_secret_store_reference: allowed
+  batching:
+    maximum_events: 100
+    maximum_uncompressed_bytes: 1048576
+    deterministic_order:
+      - occurred_at
+      - event_id
+  retries:
+    maximum_attempts: 8
+    initial_backoff_seconds: 1
+    maximum_backoff_seconds: 300
+    jitter: full
+    retry_statuses:
+      - 408
+      - 425
+      - 429
+      - 500
+      - 502
+      - 503
+      - 504
+    non_retryable_behavior: dead_letter
+  timeout_seconds:
+    connect: 3
+    read: 10
+    total: 15
+  failure_behavior:
+    diagnostics: unaffected
+    code_actions: unaffected
+    pack_activation: unaffected
+    server_startup: unaffected
+    health: degraded
+event_identity:
+  algorithm: SHA-256
+  prefix: event_
+  inputs:
+    - event_type
+    - occurred_at
+    - installation_id
+    - session_id
+    - canonical identity fields
+    - sequence
+session:
+  identity:
+    algorithm: random_256_bit
+    prefix: session_
+  persisted_across_processes: false
+retention:
+  purge:
+    - expired_events
+    - excess_queue_events
+    - excess_queue_bytes
+    - excess_dead_letter_events
+  user_deletion:
+    supported: true
+    behavior:
+      - delete_queue
+      - delete_dead_letter
+      - rotate_installation_identity
+      - reset_delivery_state
+observability:
+  telemetry_health:
+    required:
+      - policy_mode
+      - consent_state
+      - queued_event_count
+      - queued_bytes
+      - oldest_event_age_seconds
+      - dead_letter_count
+      - last_delivery_status
+      - last_successful_delivery_at
+      - limitations
+phase:
+  id: LSP-P5
+  status: implemented
+  final_repository_phase: true
+  includes:
+    - consent policy
+    - event schemas
+    - event construction
+    - privacy validation
+    - deterministic event identity
+    - local durable spool
+    - bounded retention
+    - HTTPS batch transport
+    - retry and dead-letter handling
+    - telemetry health
+    - diagnostic dispositions
+    - quick-fix outcomes
+    - rule outcomes
+    - latency buckets
+    - pack lifecycle events
+    - final acceptance gates

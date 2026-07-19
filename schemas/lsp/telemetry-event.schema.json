@@ -1,0 +1,207 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "l9://lsp/telemetry-event/v1",
+  "title": "L9 Privacy-Safe Telemetry Event",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "event_id",
+    "event_type",
+    "occurred_at",
+    "installation_id",
+    "session_id",
+    "sequence",
+    "client_name",
+    "client_version",
+    "lsp_version",
+    "rule_pack_id",
+    "rule_pack_version",
+    "corpus_snapshot",
+    "canonical_rule_id",
+    "provider_rule_id",
+    "finding_id",
+    "analysis_request_id",
+    "action_id",
+    "template_id",
+    "outcome",
+    "disposition",
+    "latency_bucket",
+    "limitations"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "l9.telemetry-event/v1"
+    },
+    "event_id": {
+      "type": "string",
+      "pattern": "^event_[0-9a-f]{64}$"
+    },
+    "event_type": {
+      "enum": [
+        "diagnostic_shown",
+        "diagnostic_dismissed",
+        "false_positive_disposition",
+        "quick_fix_offered",
+        "quick_fix_applied",
+        "quick_fix_rejected",
+        "quick_fix_outcome",
+        "rule_outcome",
+        "latency_bucket",
+        "pack_activated",
+        "pack_rollback"
+      ]
+    },
+    "occurred_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "installation_id": {
+      "type": "string",
+      "pattern": "^installation_[0-9a-f]{64}$"
+    },
+    "session_id": {
+      "type": "string",
+      "pattern": "^session_[0-9a-f]{64}$"
+    },
+    "sequence": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "client_name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 100
+    },
+    "client_version": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 100
+    },
+    "lsp_version": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 100
+    },
+    "rule_pack_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "rule_pack_version": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "corpus_snapshot": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "canonical_rule_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 512
+    },
+    "provider_rule_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 512
+    },
+    "finding_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 512
+    },
+    "analysis_request_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "action_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "template_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "outcome": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "enum": [
+        null,
+        "finding_present",
+        "finding_resolved",
+        "finding_persisted",
+        "finding_dismissed",
+        "finding_dispositioned",
+        "resolved",
+        "new_findings_introduced",
+        "edit_reverted",
+        "outcome_unknown"
+      ]
+    },
+    "disposition": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "enum": [
+        null,
+        "false_positive",
+        "not_actionable",
+        "accepted_risk",
+        "duplicate",
+        "obsolete",
+        "valid_finding",
+        "unknown"
+      ]
+    },
+    "latency_bucket": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "enum": [
+        null,
+        "lt_25ms",
+        "25_49ms",
+        "50_99ms",
+        "100_199ms",
+        "200_499ms",
+        "500_999ms",
+        "1_2s",
+        "2_5s",
+        "gt_5s",
+        "cancelled",
+        "timed_out"
+      ]
+    },
+    "limitations": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "maxLength": 500
+      },
+      "uniqueItems": true,
+      "maxItems": 20
+    }
+  }
+}

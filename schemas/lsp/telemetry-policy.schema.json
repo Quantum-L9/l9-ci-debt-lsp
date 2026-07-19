@@ -1,0 +1,73 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "l9://lsp/telemetry-policy/v1",
+  "title": "L9 LSP Telemetry Policy",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "mode",
+    "consent",
+    "endpoint",
+    "endpoint_allowlist",
+    "retention_days",
+    "organization_policy_id",
+    "limitations"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "l9.telemetry-policy/v1"
+    },
+    "mode": {
+      "enum": [
+        "disabled",
+        "local_only",
+        "user_opt_in",
+        "organization_controlled"
+      ]
+    },
+    "consent": {
+      "enum": [
+        "not_required",
+        "not_granted",
+        "granted",
+        "organization_required",
+        "organization_disabled"
+      ]
+    },
+    "endpoint": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "uri"
+    },
+    "endpoint_allowlist": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "uniqueItems": true
+    },
+    "retention_days": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 30
+    },
+    "organization_policy_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 256
+    },
+    "limitations": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "uniqueItems": true
+    }
+  }
+}

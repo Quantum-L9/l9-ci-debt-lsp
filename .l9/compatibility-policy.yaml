@@ -1,0 +1,33 @@
+schema: l9.lsp-compatibility-policy/v1
+consumer:
+  contract: l9.lsp-defense-consumer/v1
+  version: 1.0.0
+sdk:
+  accepted_contracts:
+    - l9.integration-contract/v1
+defense_pack:
+  accepted_protocols:
+    - l9.debt-defense/v1
+runtime_rule_kinds:
+  accepted:
+    - ast_grep
+    - sdk_architecture_contract
+    - generated_invariant
+  unknown_behavior: incompatible
+platforms:
+  accepted:
+    - linux-x86_64
+    - linux-arm64
+    - darwin-x86_64
+    - darwin-arm64
+    - windows-x86_64
+failure_behavior:
+  invalid_schema: reject
+  unsupported_protocol: reject
+  incompatible_SDK: reject
+  incompatible_LSP_contract: reject
+  unsupported_platform: reject
+  unsupported_rule_kind: reject
+  incomplete_metadata: reject
+active_pack_rule: >
+  Compatibility failure never modifies active or previous-known-good state.

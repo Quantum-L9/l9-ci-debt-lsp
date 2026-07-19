@@ -1,0 +1,104 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "l9://lsp/publication-manifest/v1",
+  "title": "L9 Defense Publication Manifest Consumer Schema",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "pack_id",
+    "pack_version",
+    "archive_name",
+    "archive_sha256",
+    "archive_size",
+    "signature",
+    "public_key",
+    "signer_key_id",
+    "signature_algorithm",
+    "channel",
+    "rollback",
+    "publication_gates"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "l9.defense-publication/v1"
+    },
+    "pack_id": {
+      "type": "string",
+      "pattern": "^pack_[0-9a-f]{64}$"
+    },
+    "pack_version": {
+      "type": "string",
+      "minLength": 1
+    },
+    "archive_name": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9._-]+\\.tar\\.gz$"
+    },
+    "archive_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "archive_size": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 52428800
+    },
+    "signature": {
+      "type": "string",
+      "minLength": 40
+    },
+    "public_key": {
+      "type": "string",
+      "minLength": 40
+    },
+    "signer_key_id": {
+      "type": "string",
+      "pattern": "^key_[0-9a-f]{64}$"
+    },
+    "signature_algorithm": {
+      "const": "Ed25519"
+    },
+    "channel": {
+      "enum": [
+        "experimental",
+        "shadow",
+        "stable"
+      ]
+    },
+    "rollback": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "available",
+        "previous_pack_version",
+        "previous_pack_sha256"
+      ],
+      "properties": {
+        "available": {
+          "type": "boolean"
+        },
+        "previous_pack_version": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "previous_pack_sha256": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^[0-9a-f]{64}$"
+        }
+      }
+    },
+    "publication_gates": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": {
+        "const": true
+      }
+    }
+  }
+}

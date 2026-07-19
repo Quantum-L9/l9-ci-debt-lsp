@@ -1,0 +1,63 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "l9://lsp/workspace-state/v1",
+  "title": "L9 LSP Workspace State",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "workspace_id",
+    "generation",
+    "state",
+    "open_document_count",
+    "overlay_bytes",
+    "dependency_edge_count",
+    "active_pack_id",
+    "limitations"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "l9.workspace-state/v1"
+    },
+    "workspace_id": {
+      "type": "string",
+      "pattern": "^workspace_[0-9a-f]{64}$"
+    },
+    "generation": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "state": {
+      "enum": [
+        "created",
+        "open",
+        "closing",
+        "closed"
+      ]
+    },
+    "open_document_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "overlay_bytes": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "dependency_edge_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "active_pack_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "limitations": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  }
+}

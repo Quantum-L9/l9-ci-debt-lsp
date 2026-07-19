@@ -1,0 +1,74 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "l9://lsp/code-action-provenance/v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "action_id",
+    "template_id",
+    "finding_id",
+    "canonical_rule_id",
+    "provider_rule_id",
+    "document_identity",
+    "document_version",
+    "rule_pack_id",
+    "rule_pack_version",
+    "corpus_snapshot",
+    "analysis_request_id",
+    "edit_digest",
+    "limitations"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "l9.code-action-provenance/v1"
+    },
+    "action_id": {
+      "type": "string",
+      "pattern": "^action_[0-9a-f]{64}$"
+    },
+    "template_id": {
+      "type": "string",
+      "pattern": "^fix_[0-9a-f]{64}$"
+    },
+    "finding_id": {
+      "type": "string"
+    },
+    "canonical_rule_id": {
+      "type": "string"
+    },
+    "provider_rule_id": {
+      "type": "string"
+    },
+    "document_identity": {
+      "type": "string"
+    },
+    "document_version": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "rule_pack_id": {
+      "type": "string"
+    },
+    "rule_pack_version": {
+      "type": "string"
+    },
+    "corpus_snapshot": {
+      "type": "string"
+    },
+    "analysis_request_id": {
+      "type": "string"
+    },
+    "edit_digest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "limitations": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "uniqueItems": true
+    }
+  }
+}

@@ -1,0 +1,70 @@
+{
+  "name": "l9-ci-debt",
+  "displayName": "L9 CI Debt",
+  "description": "Deterministic editor diagnostics from immutable Quantum-L9 defense packs",
+  "version": "0.2.0",
+  "publisher": "quantum-l9",
+  "license": "Apache-2.0",
+  "engines": {
+    "vscode": "^1.95.0"
+  },
+  "categories": [
+    "Linters",
+    "Programming Languages"
+  ],
+  "activationEvents": [
+    "onLanguage:python",
+    "onLanguage:yaml",
+    "onLanguage:toml",
+    "workspaceContains:.github/workflows/*"
+  ],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "l9CiDebt.showServerCapabilities",
+        "title": "L9 CI Debt: Show Server Capabilities"
+      }
+    ],
+    "configuration": {
+      "title": "L9 CI Debt",
+      "properties": {
+        "l9CiDebt.server.pythonPath": {
+          "type": "string",
+          "default": "python3",
+          "description": "Python interpreter used to launch the L9 CI Debt language server."
+        },
+        "l9CiDebt.server.module": {
+          "type": "string",
+          "default": "l9_debt_lsp.server",
+          "description": "Python module containing the L9 CI Debt language server."
+        },
+        "l9CiDebt.pack.activeVersion": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "default": null,
+          "description": "Explicit immutable defense-pack version. Activation is implemented in LSP-P1."
+        },
+        "l9CiDebt.telemetry.enabled": {
+          "type": "boolean",
+          "default": false,
+          "description": "Enable minimized L9 telemetry after LSP-P5 is installed."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "compile": "tsc -p ./",
+    "check": "tsc -p ./ --noEmit"
+  },
+  "dependencies": {
+    "vscode-languageclient": "^9.0.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "@types/vscode": "^1.95.0",
+    "typescript": "^5.7.0"
+  }
+}
