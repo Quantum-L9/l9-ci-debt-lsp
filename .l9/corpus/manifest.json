@@ -1,0 +1,13 @@
+{
+  "schema": "l9.corpus_manifest/v1",
+  "repo": "Quantum-L9/l9-ci-debt-lsp",
+  "role": "consumer",
+  "produces": [],
+  "consumes": [
+    {
+      "channel": "rules",
+      "format": "compiled-rules/v1",
+      "description": "Consumes compiled intelligence rules for IDE diagnostics and code actions"
+    }
+  ]
+}
