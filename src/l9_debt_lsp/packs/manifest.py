@@ -1,10 +1,15 @@
 from __future__ import annotations
+
 from pathlib import Path
 from typing import Any
+
 from l9_debt_lsp.contracts.schema import SchemaValidator
+
 from .errors import ManifestValidationError
 from .hashing import sha256_file
 from .jsonio import load_json
+
+
 def load_and_validate_manifest(
     *,
     manifest_path: Path,
@@ -18,14 +23,12 @@ def load_and_validate_manifest(
             f"publication manifest validation failed: {error}"
         ) from error
     if manifest["signature_algorithm"] != "Ed25519":
-        raise ManifestValidationError(
-            "only Ed25519 signatures are supported"
-        )
+        raise ManifestValidationError("only Ed25519 signatures are supported")
     if not all(manifest["publication_gates"].values()):
-        raise ManifestValidationError(
-            "publication manifest contains an unpassed gate"
-        )
+        raise ManifestValidationError("publication manifest contains an unpassed gate")
     return manifest
+
+
 def verify_archive_reference(
     *,
     manifest: dict[str, Any],

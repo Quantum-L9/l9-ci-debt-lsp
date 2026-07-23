@@ -1,7 +1,10 @@
 from __future__ import annotations
+
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
+
+
 @dataclass(frozen=True)
 class TrustedKey:
     key_id: str
@@ -13,6 +16,8 @@ class TrustedKey:
     not_before: str | None
     not_after: str | None
     limitations: tuple[str, ...]
+
+
 @dataclass(frozen=True)
 class InstalledPack:
     pack_id: str
@@ -26,6 +31,7 @@ class InstalledPack:
     taxonomy_version: str
     sdk_contract_version: str
     limitations: tuple[str, ...]
+
     def as_dict(self) -> dict[str, Any]:
         return {
             "schema_version": "l9.pack-installation-result/v1",
@@ -42,6 +48,8 @@ class InstalledPack:
             "sdk_contract_version": self.sdk_contract_version,
             "limitations": list(self.limitations),
         }
+
+
 @dataclass(frozen=True)
 class ActivationPointer:
     pack_id: str
@@ -53,6 +61,7 @@ class ActivationPointer:
     sdk_contract_version: str
     activated_at: str
     activation_id: str
+
     def as_dict(self) -> dict[str, Any]:
         return {
             "schema_version": "l9.pack-activation-pointer/v1",

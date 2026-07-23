@@ -1,14 +1,16 @@
 from __future__ import annotations
+
 import shutil
 import tempfile
 from pathlib import Path
-from typing import Any
+
 from l9_debt_lsp.contracts.compatibility import (
     evaluate_compatibility,
 )
 from l9_debt_lsp.contracts.descriptor import (
     descriptor_from_defense_pack,
 )
+
 from .archive import extract_archive_safely
 from .contents import (
     load_and_validate_defense_pack,
@@ -21,7 +23,6 @@ from .errors import (
     PackCompatibilityFailure,
     PackError,
 )
-from .hashing import sha256_file
 from .jsonio import load_json
 from .manifest import (
     load_and_validate_manifest,
@@ -34,6 +35,8 @@ from .retirement import RetirementRegistry
 from .signature import verify_archive_digest
 from .store import PackStore
 from .trust import TrustRegistry
+
+
 class PackInstaller:
     def __init__(
         self,
@@ -56,6 +59,7 @@ class PackInstaller:
             staging_root=paths.staging,
         )
         self.quarantine = QuarantineStore(paths.quarantine)
+
     def install(
         self,
         *,
@@ -67,10 +71,7 @@ class PackInstaller:
         try:
             manifest = load_and_validate_manifest(
                 manifest_path=manifest_path,
-                schema_path=(
-                    self.schema_root
-                    / "publication-manifest.schema.json"
-                ),
+                schema_path=(self.schema_root / "publication-manifest.schema.json"),
             )
             archive_sha256 = verify_archive_reference(
                 manifest=manifest,
@@ -106,20 +107,15 @@ class PackInstaller:
                 defense_pack = load_and_validate_defense_pack(
                     root=extraction_root,
                     schema_path=(
-                        self.schema_root
-                        / "defense-pack-consumer.schema.json"
+                        self.schema_root / "defense-pack-consumer.schema.json"
                     ),
                 )
                 validate_identity_consistency(
                     manifest=manifest,
                     defense_pack=defense_pack,
                 )
-                compatibility = load_json(
-                    extraction_root / "compatibility.json"
-                )
-                descriptor = descriptor_from_defense_pack(
-                    defense_pack
-                )
+                compatibility = load_json(extraction_root / "compatibility.json")
+                descriptor = descriptor_from_defense_pack(defense_pack)
                 compatibility_result = evaluate_compatibility(
                     descriptor=descriptor,
                     compatibility=compatibility,
@@ -127,9 +123,7 @@ class PackInstaller:
                 )
                 if compatibility_result.status != "compatible":
                     raise PackCompatibilityFailure(
-                        "; ".join(
-                            compatibility_result.limitations
-                        )
+                        "; ".join(compatibility_result.limitations)
                     )
                 self.retirement.require_not_retired(
                     pack_id=defense_pack["pack_id"],
@@ -143,9 +137,7 @@ class PackInstaller:
                     archive_sha256=archive_sha256,
                     signer_key_id=trusted_key.key_id,
                     content_hashes=verified_hashes,
-                    limitations=list(
-                        compatibility_result.limitations
-                    ),
+                    limitations=list(compatibility_result.limitations),
                 )
             finally:
                 shutil.rmtree(
