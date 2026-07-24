@@ -7,7 +7,7 @@ version = "1.0.0"
 description = "Offline-first LSP serving immutable Quantum-L9 debt-defense packs"
 readme = "README.md"
 requires-python = ">=3.11"
-license = { text = "Apache-2.0" }
+license = { text = "Proprietary" }
 authors = [
   { name = "Quantum-L9" }
 ]

@@ -1,13 +1,17 @@
 from __future__ import annotations
+
 from pathlib import Path
 from typing import Any
-from l9_debt_lsp.contracts.canonical import canonical_json
+
 from .hashing import namespaced_hash, sha256_bytes, sha256_file
 from .jsonio import write_canonical_json
 from .time import format_utc, utc_now
+
+
 class QuarantineStore:
     def __init__(self, root: Path) -> None:
         self.root = root
+
     def record(
         self,
         *,
@@ -19,14 +23,12 @@ class QuarantineStore:
     ) -> dict[str, Any]:
         manifest_hash = (
             sha256_file(manifest_path)
-            if manifest_path is not None
-            and manifest_path.is_file()
+            if manifest_path is not None and manifest_path.is_file()
             else None
         )
         archive_hash = (
             sha256_file(archive_path)
-            if archive_path is not None
-            and archive_path.is_file()
+            if archive_path is not None and archive_path.is_file()
             else None
         )
         identity = {
@@ -49,9 +51,7 @@ class QuarantineStore:
             "archive_sha256": archive_hash,
             "manifest_sha256": manifest_hash,
             "observed_at": format_utc(utc_now()),
-            "limitations": sorted(
-                set(limitations or [])
-            ),
+            "limitations": sorted(set(limitations or [])),
         }
         write_canonical_json(
             destination / "rejection.json",
@@ -62,9 +62,7 @@ class QuarantineStore:
             write_canonical_json(
                 destination / "publication-manifest-reference.json",
                 {
-                    "schema_version": (
-                        "l9.quarantined-manifest-reference/v1"
-                    ),
+                    "schema_version": ("l9.quarantined-manifest-reference/v1"),
                     "sha256": sha256_bytes(manifest_bytes),
                     "size": len(manifest_bytes),
                     "source_name": manifest_path.name,
@@ -74,9 +72,7 @@ class QuarantineStore:
             write_canonical_json(
                 destination / "archive-reference.json",
                 {
-                    "schema_version": (
-                        "l9.quarantined-archive-reference/v1"
-                    ),
+                    "schema_version": ("l9.quarantined-archive-reference/v1"),
                     "sha256": archive_hash,
                     "size": archive_path.stat().st_size,
                     "source_name": archive_path.name,

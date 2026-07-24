@@ -1,8 +1,10 @@
 from __future__ import annotations
-import json
+
 from pathlib import Path
 from typing import Any
+
 from l9_debt_lsp.contracts.schema import SchemaValidator
+
 from .errors import ActivationError, RollbackError
 from .hashing import namespaced_hash
 from .jsonio import (
@@ -15,6 +17,8 @@ from .paths import StatePaths
 from .retirement import RetirementRegistry
 from .store import PackStore
 from .time import format_utc, utc_now
+
+
 class ActivationManager:
     def __init__(
         self,
@@ -34,10 +38,13 @@ class ActivationManager:
         self.pointer_validator = SchemaValidator(
             schema_root / "activation-pointer.schema.json"
         )
+
     def load_active(self) -> ActivationPointer | None:
         return self._load_pointer(self.paths.active)
+
     def load_previous(self) -> ActivationPointer | None:
         return self._load_pointer(self.paths.previous)
+
     def activate(
         self,
         pack_id: str,
@@ -57,14 +64,8 @@ class ActivationManager:
             {
                 "operation": operation,
                 "target_pack_id": target.pack_id,
-                "previous_pack_id": (
-                    current.pack_id
-                    if current is not None
-                    else None
-                ),
-                "target_archive_sha256": (
-                    target.archive_sha256
-                ),
+                "previous_pack_id": (current.pack_id if current is not None else None),
+                "target_archive_sha256": (target.archive_sha256),
                 "occurred_at": occurred_at,
             },
         )
@@ -87,11 +88,7 @@ class ActivationManager:
                 operation=operation,
                 activation_id=activation_id,
                 target_pack_id=target.pack_id,
-                previous_pack_id=(
-                    current.pack_id
-                    if current is not None
-                    else None
-                ),
+                previous_pack_id=(current.pack_id if current is not None else None),
                 occurred_at=occurred_at,
                 status="succeeded",
                 limitations=[],
@@ -102,33 +99,25 @@ class ActivationManager:
                 operation=operation,
                 activation_id=activation_id,
                 target_pack_id=target.pack_id,
-                previous_pack_id=(
-                    current.pack_id
-                    if current is not None
-                    else None
-                ),
+                previous_pack_id=(current.pack_id if current is not None else None),
                 occurred_at=occurred_at,
                 status="failed",
                 limitations=[str(error)],
             )
-            raise ActivationError(
-                f"atomic pack activation failed: {error}"
-            ) from error
+            raise ActivationError(f"atomic pack activation failed: {error}") from error
+
     def rollback(self) -> ActivationPointer:
         previous = self.load_previous()
         if previous is None:
-            raise RollbackError(
-                "no previous-known-good pack is available"
-            )
+            raise RollbackError("no previous-known-good pack is available")
         try:
             return self.activate(
                 previous.pack_id,
                 operation="rollback",
             )
         except Exception as error:
-            raise RollbackError(
-                f"rollback failed: {error}"
-            ) from error
+            raise RollbackError(f"rollback failed: {error}") from error
+
     def recover(self) -> dict[str, Any]:
         self.paths.initialize()
         active = self.load_active()
@@ -142,9 +131,7 @@ class ActivationManager:
         }
         if active is not None:
             try:
-                installed = self.store.verify_integrity(
-                    active.pack_id
-                )
+                installed = self.store.verify_integrity(active.pack_id)
                 self.retirement.require_not_retired(
                     pack_id=installed.pack_id,
                     pack_version=installed.pack_version,
@@ -152,14 +139,10 @@ class ActivationManager:
                 result["active_pack_id"] = active.pack_id
             except Exception as error:
                 result["status"] = "degraded"
-                result["limitations"].append(
-                    f"active pack invalid: {error}"
-                )
+                result["limitations"].append(f"active pack invalid: {error}")
         if previous is not None:
             try:
-                installed = self.store.verify_integrity(
-                    previous.pack_id
-                )
+                installed = self.store.verify_integrity(previous.pack_id)
                 self.retirement.require_not_retired(
                     pack_id=installed.pack_id,
                     pack_version=installed.pack_version,
@@ -167,10 +150,9 @@ class ActivationManager:
                 result["previous_pack_id"] = previous.pack_id
             except Exception as error:
                 result["status"] = "degraded"
-                result["limitations"].append(
-                    f"previous-known-good invalid: {error}"
-                )
+                result["limitations"].append(f"previous-known-good invalid: {error}")
         return result
+
     def _load_pointer(
         self,
         path: Path,
@@ -186,12 +168,11 @@ class ActivationManager:
             corpus_snapshot=document["corpus_snapshot"],
             compiler_version=document["compiler_version"],
             taxonomy_version=document["taxonomy_version"],
-            sdk_contract_version=document[
-                "sdk_contract_version"
-            ],
+            sdk_contract_version=document["sdk_contract_version"],
             activated_at=document["activated_at"],
             activation_id=document["activation_id"],
         )
+
     @staticmethod
     def _pointer_from_pack(
         pack: InstalledPack,
@@ -210,6 +191,7 @@ class ActivationManager:
             activated_at=activated_at,
             activation_id=activation_id,
         )
+
     def _append_history(
         self,
         *,
@@ -227,15 +209,11 @@ class ActivationManager:
                 "r",
                 encoding="utf-8",
             ) as stream:
-                sequence += sum(
-                    1 for line in stream if line.strip()
-                )
+                sequence += sum(1 for line in stream if line.strip())
         append_canonical_jsonl(
             self.paths.activation_history,
             {
-                "schema_version": (
-                    "l9.pack-activation-history-entry/v1"
-                ),
+                "schema_version": ("l9.pack-activation-history-entry/v1"),
                 "sequence": sequence,
                 "operation": operation,
                 "activation_id": activation_id,

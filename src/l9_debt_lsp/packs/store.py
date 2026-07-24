@@ -1,11 +1,11 @@
 from __future__ import annotations
-import json
+
 import os
 import shutil
 import tempfile
 from pathlib import Path
 from typing import Any
-from l9_debt_lsp.contracts.canonical import canonical_json
+
 from .errors import (
     ImmutablePackCollisionError,
     PackValidationError,
@@ -18,6 +18,7 @@ from .jsonio import (
 )
 from .models import InstalledPack
 from .time import format_utc, utc_now
+
 REQUIRED_INSTALLED_FILES = (
     "manifest.json",
     "defense-pack.json",
@@ -26,6 +27,8 @@ REQUIRED_INSTALLED_FILES = (
     "installation.json",
     "archive.sha256",
 )
+
+
 class PackStore:
     def __init__(
         self,
@@ -35,8 +38,10 @@ class PackStore:
     ) -> None:
         self.packs_root = packs_root
         self.staging_root = staging_root
+
     def pack_path(self, pack_id: str) -> Path:
         return self.packs_root / pack_id
+
     def install(
         self,
         *,
@@ -59,9 +64,7 @@ class PackStore:
                 and installed.manifest_sha256 == manifest_sha256
             ):
                 return installed
-            raise ImmutablePackCollisionError(
-                f"pack identity collision: {pack_id}"
-            )
+            raise ImmutablePackCollisionError(f"pack identity collision: {pack_id}")
         self.packs_root.mkdir(parents=True, exist_ok=True)
         self.staging_root.mkdir(parents=True, exist_ok=True)
         temporary = Path(
@@ -91,9 +94,7 @@ class PackStore:
                 "signer_key_id": signer_key_id,
                 "compatibility_state": "compatible",
                 "installed_at": format_utc(utc_now()),
-                "content_hashes": dict(
-                    sorted(content_hashes.items())
-                ),
+                "content_hashes": dict(sorted(content_hashes.items())),
                 "limitations": sorted(set(limitations)),
             }
             write_canonical_json(
@@ -112,33 +113,23 @@ class PackStore:
             return self.load(pack_id)
         finally:
             shutil.rmtree(temporary, ignore_errors=True)
+
     def load(self, pack_id: str) -> InstalledPack:
         root = self.pack_path(pack_id)
         if not root.is_dir():
-            raise PackValidationError(
-                f"pack is not installed: {pack_id}"
-            )
+            raise PackValidationError(f"pack is not installed: {pack_id}")
         missing = [
-            name for name in REQUIRED_INSTALLED_FILES
-            if not (root / name).is_file()
+            name for name in REQUIRED_INSTALLED_FILES if not (root / name).is_file()
         ]
         if missing:
-            raise PackValidationError(
-                f"installed pack is incomplete: {missing}"
-            )
+            raise PackValidationError(f"installed pack is incomplete: {missing}")
         installation = load_json(root / "installation.json")
         defense_pack = load_json(root / "defense-pack.json")
-        archive_sha256 = (
-            root / "archive.sha256"
-        ).read_text(encoding="ascii").strip()
+        archive_sha256 = (root / "archive.sha256").read_text(encoding="ascii").strip()
         if installation["pack_id"] != pack_id:
-            raise PackValidationError(
-                "installation pack ID does not match directory"
-            )
+            raise PackValidationError("installation pack ID does not match directory")
         if defense_pack["pack_id"] != pack_id:
-            raise PackValidationError(
-                "defense pack ID does not match directory"
-            )
+            raise PackValidationError("defense pack ID does not match directory")
         if archive_sha256 != installation["archive_sha256"]:
             raise PackValidationError(
                 "archive hash file does not match installation record"
@@ -153,36 +144,30 @@ class PackStore:
             corpus_snapshot=defense_pack["corpus_snapshot"],
             compiler_version=defense_pack["compiler_version"],
             taxonomy_version=defense_pack["taxonomy_version"],
-            sdk_contract_version=defense_pack[
-                "SDK_contract_version"
-            ],
-            limitations=tuple(
-                sorted(set(installation["limitations"]))
-            ),
+            sdk_contract_version=defense_pack["SDK_contract_version"],
+            limitations=tuple(sorted(set(installation["limitations"]))),
         )
+
     def verify_integrity(
         self,
         pack_id: str,
     ) -> InstalledPack:
         installed = self.load(pack_id)
-        installation = load_json(
-            installed.path / "installation.json"
-        )
+        installation = load_json(installed.path / "installation.json")
         expected_hashes = installation["content_hashes"]
         for relative_name, expected_hash in expected_hashes.items():
             path = installed.path / relative_name
             if not path.is_file():
                 raise PackValidationError(
-                    f"installed pack member is missing: "
-                    f"{relative_name}"
+                    f"installed pack member is missing: {relative_name}"
                 )
             actual_hash = sha256_file(path)
             if actual_hash != expected_hash:
                 raise PackValidationError(
-                    f"installed pack member hash mismatch: "
-                    f"{relative_name}"
+                    f"installed pack member hash mismatch: {relative_name}"
                 )
         return installed
+
     @staticmethod
     def _fsync_tree(root: Path) -> None:
         for path in sorted(root.rglob("*")):
