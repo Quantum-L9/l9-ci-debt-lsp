@@ -24,23 +24,21 @@ The LSP does not own:
 - policy promotion
 - autonomous repair
 ## Phase status
-The repository currently implements **LSP-P0: boundary cleanup**.
+The repository is at **v1.0.0**: every phase of the LSP architectural roadmap
+(LSP-P0 through LSP-P5) is implemented. See `ROADMAP.md` for per-phase detail
+and `VALIDATION_REPORT.json` for the integrated-phase record.
 Available:
-- defense-pack descriptor projection
-- compatibility evaluation
+- defense-pack descriptor projection and compatibility evaluation
 - architecture enforcement
-- minimal Python LSP server
-- minimal VS Code client
-Not yet available:
-- cryptographic pack verification
-- pack installation
-- pack activation
-- rollback
-- SDK incremental analysis
-- diagnostics
-- code actions
-- telemetry
-These capabilities are implemented in subsequent phases.
+- cryptographic pack verification, installation, activation, and rollback
+- SDK incremental analysis runtime
+- canonical diagnostics
+- bounded code actions
+- privacy-safe effectiveness telemetry
+- Python LSP server and VS Code client
+
+The sections below document each capability. The runtime remains fail-closed
+until a concrete public SDK `AnalysisSession` binding is configured.
 ## Development
 ```bash
 python3 -m venv .venv

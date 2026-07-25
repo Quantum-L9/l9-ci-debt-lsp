@@ -66,7 +66,7 @@ Status: Implemented
 - no arbitrary command execution
 - no autonomous multi-file repair
 ## LSP-P5 - Effectiveness loop
-Status: Planned
+Status: Implemented
 - opt-in privacy-safe telemetry
 - diagnostic dispositions
 - false-positive dispositions
