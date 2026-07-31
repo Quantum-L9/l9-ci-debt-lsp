@@ -1,0 +1,11 @@
+# CI-only dependencies for the strict mypy gate (`mypy src`).
+#
+# Runtime dependencies are declared in pyproject.toml; the `dev` extra pins the
+# tools (mypy, ruff, pytest). This file adds the third-party *type stub*
+# packages that mypy needs to type-check the code that imports libraries which
+# ship no inline types. Without it, `mypy src` fails with
+# `import-untyped: Library stubs not installed for "jsonschema"`.
+#
+# Install alongside the dev extra in CI:
+#   python -m pip install -e '.[dev]' -r requirements-ci.txt
+types-jsonschema>=4.23,<5
