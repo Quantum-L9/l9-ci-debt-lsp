@@ -1,5 +1,5 @@
 [build-system]
-requires = ["hatchling>=1.25,<2"]
+requires = ["hatchling>=1.31.0,<2"]
 build-backend = "hatchling.build"
 [project]
 name = "l9-ci-debt-lsp"
@@ -15,6 +15,7 @@ dependencies = [
   "jsonschema>=4.23,<5",
   "pyyaml>=6.0,<7",
   "pygls>=1.3,<2",
+  "lsprotocol>=2023.0.1,<2024",
   "cryptography>=43,<46",
   "httpx>=0.27,<1"
 ]
@@ -33,20 +34,16 @@ l9-debt-lsp-contracts = "l9_debt_lsp.cli:main"
 packages = ["src/l9_debt_lsp"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+# Put the repository root on sys.path so the test-support package
+# (`tests.fixtures.*`) imports under a bare `pytest` invocation, not only under
+# `python -m pytest`. CI calls `pytest` directly, so without this the fixture
+# imports fail at collection time.
+pythonpath = ["."]
 addopts = "-ra --strict-markers"
 asyncio_mode = "auto"
-[tool.ruff]
-target-version = "py311"
-line-length = 88
-[tool.ruff.lint]
-select = [
-  "E",
-  "F",
-  "I",
-  "B",
-  "UP",
-  "RUF"
-]
+# Ruff is configured in ruff.toml (single source of truth). A [tool.ruff]
+# table here would be ignored whenever ruff.toml is present, so it is kept out
+# of pyproject.toml deliberately to avoid silent divergence.
 [tool.mypy]
 python_version = "3.11"
 strict = true
