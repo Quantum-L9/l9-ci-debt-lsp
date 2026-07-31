@@ -5,8 +5,12 @@ import json
 from collections.abc import Sequence
 from pathlib import Path
 
+from . import __version__
+from .contracts.compatibility import evaluate_compatibility
+from .contracts.descriptor import descriptor_from_defense_pack
 from .packs.activation import ActivationManager
 from .packs.installer import PackInstaller
+from .packs.jsonio import load_json
 from .packs.paths import StatePaths, default_state_root
 from .packs.store import PackStore
 from .runtime.capabilities import phase_capabilities
@@ -34,6 +38,18 @@ def parser() -> argparse.ArgumentParser:
         required=True,
     )
     commands.add_parser("capabilities")
+    compatibility = commands.add_parser("evaluate-compatibility")
+    compatibility.add_argument(
+        "--defense-pack",
+        type=Path,
+        required=True,
+    )
+    compatibility.add_argument(
+        "--compatibility",
+        type=Path,
+        required=True,
+    )
+    compatibility.add_argument("--platform")
     install = commands.add_parser("install-pack")
     install.add_argument(
         "--manifest",
@@ -75,6 +91,23 @@ def main(argv: Sequence[str] | None = None) -> int:
     schemas = schema_root()
     if arguments.command == "capabilities":
         emit(phase_capabilities())
+        return 0
+    if arguments.command == "evaluate-compatibility":
+        defense_pack = load_json(arguments.defense_pack.resolve())
+        descriptor = descriptor_from_defense_pack(defense_pack)
+        compatibility_document = load_json(arguments.compatibility.resolve())
+        # Accept either a full defense pack (compatibility matrix nested under
+        # "compatibility") or a bare compatibility matrix document.
+        matrix = compatibility_document.get(
+            "compatibility",
+            compatibility_document,
+        )
+        result = evaluate_compatibility(
+            descriptor=descriptor,
+            compatibility=matrix,
+            platform_identity=arguments.platform,
+        )
+        emit(result.as_dict())
         return 0
     if arguments.command == "install-pack":
         installed = PackInstaller(
@@ -123,8 +156,8 @@ def main(argv: Sequence[str] | None = None) -> int:
             paths=TelemetryPaths(paths),
             schema_root=schemas,
             client_name="cli",
-            client_version="1",
-            lsp_version="0.6.0",
+            client_version=__version__,
+            lsp_version=__version__,
         )
         if arguments.command == "telemetry-health":
             emit(service.health())
