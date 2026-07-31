@@ -1,0 +1,81 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "l9://lsp/telemetry-health/v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "status",
+    "policy_mode",
+    "consent_state",
+    "queued_event_count",
+    "queued_bytes",
+    "oldest_event_age_seconds",
+    "dead_letter_count",
+    "last_delivery_status",
+    "last_successful_delivery_at",
+    "limitations"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "l9.telemetry-health/v1"
+    },
+    "status": {
+      "enum": [
+        "healthy",
+        "degraded",
+        "disabled"
+      ]
+    },
+    "policy_mode": {
+      "enum": [
+        "disabled",
+        "local_only",
+        "user_opt_in",
+        "organization_controlled"
+      ]
+    },
+    "consent_state": {
+      "type": "string"
+    },
+    "queued_event_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "queued_bytes": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "oldest_event_age_seconds": {
+      "type": [
+        "number",
+        "null"
+      ],
+      "minimum": 0
+    },
+    "dead_letter_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "last_delivery_status": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "last_successful_delivery_at": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date-time"
+    },
+    "limitations": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "uniqueItems": true
+    }
+  }
+}

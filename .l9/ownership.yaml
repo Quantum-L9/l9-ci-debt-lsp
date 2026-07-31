@@ -1,0 +1,53 @@
+schema: l9.ownership-spec/v1
+repository: Quantum-L9/l9-ci-debt-lsp
+lsp_owns:
+  protocol:
+    - JSON-RPC lifecycle
+    - LSP capabilities
+    - document synchronization
+    - workspace synchronization
+  serving:
+    - runtime pack projection
+    - diagnostics presentation
+    - related information
+    - severity mapping
+    - bounded code actions
+  lifecycle:
+    - pack installation
+    - pack activation
+    - rollback
+    - previous-known-good state
+    - local active-pack cache
+  runtime:
+    - scheduling
+    - cancellation
+    - debounce
+    - document version control
+    - stale-result suppression
+federated_from_sdk:
+  - source-location
+  - evidence
+  - finding
+  - finding identity
+  - AnalysisSession semantics
+consumed_from_intelligence:
+  - l9.debt-defense/v1
+  - publication manifest
+  - compatibility matrix
+  - signed pack archive
+  - retirement metadata
+prohibited:
+  - canonical corpus ingestion
+  - corpus mining
+  - corpus normalization
+  - recurrence analysis
+  - co-occurrence analysis
+  - effort analysis
+  - prevention-rule compilation
+  - rule promotion
+  - policy promotion
+  - Core governance mutation
+  - arbitrary command execution
+  - autonomous repair
+  - Git mutation
+  - source repository mutation

@@ -1,0 +1,197 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "l9://lsp/canonical-diagnostic/v1",
+  "title": "L9 Canonical Editor Diagnostic",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "range",
+    "severity",
+    "code",
+    "source",
+    "message",
+    "tags",
+    "related_information",
+    "data"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "l9.canonical-diagnostic/v1"
+    },
+    "range": {
+      "$ref": "#/$defs/range"
+    },
+    "severity": {
+      "enum": [
+        1,
+        2,
+        3,
+        4
+      ]
+    },
+    "code": {
+      "type": "string",
+      "minLength": 1
+    },
+    "source": {
+      "const": "l9-ci-debt"
+    },
+    "message": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 2000
+    },
+    "tags": {
+      "type": "array",
+      "items": {
+        "enum": [
+          1,
+          2
+        ]
+      },
+      "uniqueItems": true
+    },
+    "related_information": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/relatedInformation"
+      },
+      "maxItems": 20
+    },
+    "data": {
+      "$ref": "#/$defs/data"
+    }
+  },
+  "$defs": {
+    "position": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "line",
+        "character"
+      ],
+      "properties": {
+        "line": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "character": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "range": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "start",
+        "end"
+      ],
+      "properties": {
+        "start": {
+          "$ref": "#/$defs/position"
+        },
+        "end": {
+          "$ref": "#/$defs/position"
+        }
+      }
+    },
+    "relatedInformation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "location",
+        "message"
+      ],
+      "properties": {
+        "location": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "uri",
+            "range"
+          ],
+          "properties": {
+            "uri": {
+              "type": "string"
+            },
+            "range": {
+              "$ref": "#/$defs/range"
+            }
+          }
+        },
+        "message": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1000
+        }
+      }
+    },
+    "data": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "finding_id",
+        "canonical_rule_id",
+        "provider_rule_id",
+        "document_identity",
+        "document_version",
+        "rule_pack_id",
+        "rule_pack_version",
+        "corpus_snapshot",
+        "analysis_request_id",
+        "analysis_status",
+        "limitations"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "l9.diagnostic-data/v1"
+        },
+        "finding_id": {
+          "type": "string"
+        },
+        "canonical_rule_id": {
+          "type": "string"
+        },
+        "provider_rule_id": {
+          "type": "string"
+        },
+        "document_identity": {
+          "type": "string"
+        },
+        "document_version": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "rule_pack_id": {
+          "type": "string"
+        },
+        "rule_pack_version": {
+          "type": "string"
+        },
+        "corpus_snapshot": {
+          "type": "string"
+        },
+        "analysis_request_id": {
+          "type": "string"
+        },
+        "analysis_status": {
+          "enum": [
+            "complete",
+            "incomplete"
+          ]
+        },
+        "limitations": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "uniqueItems": true
+        }
+      }
+    }
+  }
+}

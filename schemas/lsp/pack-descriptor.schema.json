@@ -1,0 +1,79 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "l9://lsp/pack-descriptor/v1",
+  "title": "L9 LSP Defense Pack Descriptor",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "pack_id",
+    "pack_version",
+    "protocol",
+    "corpus_snapshot",
+    "analysis_run",
+    "compilation_id",
+    "compiler_version",
+    "taxonomy_version",
+    "sdk_contract_version",
+    "runtime_rule_kinds",
+    "limitations"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "l9.lsp-pack-descriptor/v1"
+    },
+    "pack_id": {
+      "type": "string",
+      "pattern": "^pack_[0-9a-f]{64}$"
+    },
+    "pack_version": {
+      "type": "string",
+      "minLength": 1
+    },
+    "protocol": {
+      "const": "l9.debt-defense/v1"
+    },
+    "corpus_snapshot": {
+      "type": "string",
+      "pattern": "^cs_[0-9a-f]{64}$"
+    },
+    "analysis_run": {
+      "type": "string",
+      "pattern": "^ar_[0-9a-f]{64}$"
+    },
+    "compilation_id": {
+      "type": "string",
+      "pattern": "^compile_[0-9a-f]{64}$"
+    },
+    "compiler_version": {
+      "type": "string",
+      "minLength": 1
+    },
+    "taxonomy_version": {
+      "type": "string",
+      "minLength": 1
+    },
+    "sdk_contract_version": {
+      "type": "string",
+      "minLength": 1
+    },
+    "runtime_rule_kinds": {
+      "type": "array",
+      "items": {
+        "enum": [
+          "ast_grep",
+          "sdk_architecture_contract",
+          "generated_invariant"
+        ]
+      },
+      "uniqueItems": true
+    },
+    "limitations": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "uniqueItems": true
+    }
+  }
+}

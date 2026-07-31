@@ -1,0 +1,57 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "l9://lsp/telemetry-delivery-state/v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "last_attempt_at",
+    "last_successful_delivery_at",
+    "last_delivery_status",
+    "consecutive_failures",
+    "next_attempt_at",
+    "limitations"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "l9.telemetry-delivery-state/v1"
+    },
+    "last_attempt_at": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date-time"
+    },
+    "last_successful_delivery_at": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date-time"
+    },
+    "last_delivery_status": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "consecutive_failures": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "next_attempt_at": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date-time"
+    },
+    "limitations": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  }
+}

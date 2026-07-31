@@ -1,0 +1,35 @@
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+.venv/
+dist/
+build/
+*.egg-info/
+
+# Node
+vscode/node_modules/
+vscode/dist/
+vscode/*.vsix
+
+# Editors
+.vscode/
+.idea/
+
+# Runtime state (anchored to repo root so nested source modules
+# such as src/l9_debt_lsp/packs/ are not accidentally ignored)
+/var/
+/.l9-runtime/
+/packs/
+/quarantine/
+
+# Secrets
+*.pem
+*.key
+*.p12
+*.pfx
+.env

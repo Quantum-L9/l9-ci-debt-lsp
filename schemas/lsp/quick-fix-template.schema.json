@@ -1,0 +1,102 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "l9://lsp/quick-fix-template/v1",
+  "title": "L9 Deterministic Quick Fix Template",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "template_id",
+    "canonical_rule_id",
+    "title",
+    "kind",
+    "safety",
+    "scope",
+    "edits",
+    "limitations"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "l9.quick-fix-template/v1"
+    },
+    "template_id": {
+      "type": "string",
+      "pattern": "^fix_[0-9a-f]{64}$"
+    },
+    "canonical_rule_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512
+    },
+    "title": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "kind": {
+      "enum": [
+        "deterministic_template",
+        "validated_structural_rewrite"
+      ]
+    },
+    "safety": {
+      "enum": [
+        "deterministic",
+        "validated"
+      ]
+    },
+    "scope": {
+      "const": "current_document"
+    },
+    "edits": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 50,
+      "items": {
+        "$ref": "#/$defs/edit"
+      }
+    },
+    "limitations": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "uniqueItems": true
+    }
+  },
+  "$defs": {
+    "edit": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "start_line",
+        "start_character",
+        "end_line",
+        "end_character",
+        "replacement"
+      ],
+      "properties": {
+        "start_line": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "start_character": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "end_line": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "end_character": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "replacement": {
+          "type": "string",
+          "maxLength": 65536
+        }
+      }
+    }
+  }
+}

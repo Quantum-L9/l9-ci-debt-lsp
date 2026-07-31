@@ -1,0 +1,197 @@
+schema: l9.lsp-code-action-contract/v1
+metadata:
+  repository: Quantum-L9/l9-ci-debt-lsp
+  phase: LSP-P4
+  status: authoritative
+authority:
+  intelligence_owns:
+    - remediation template semantics
+    - canonical rule association
+    - remediation template identity
+    - remediation safety classification
+  sdk_owns:
+    - finding identity
+    - canonical rule identity
+    - evidence semantics
+    - source-location semantics
+  lsp_owns:
+    - code-action presentation
+    - document-version validation
+    - edit-range validation
+    - edit conflict detection
+    - protected-path enforcement
+    - WorkspaceEdit construction
+    - preview presentation
+    - explicit user-approval boundary
+    - post-edit analysis scheduling
+  prohibited:
+    - invent authoritative remediation semantics
+    - execute arbitrary commands
+    - execute shell commands
+    - run Git commands
+    - mutate branches
+    - install dependencies
+    - edit files outside the declared document
+    - autonomous multi-file repair
+    - use model-generated unbounded patches
+    - apply edits without user approval
+input:
+  diagnostic:
+    schema: l9.canonical-diagnostic/v1
+  remediation_template:
+    schema: l9.quick-fix-template/v1
+    source: active immutable defense pack
+binding:
+  required_equalities:
+    - diagnostic.canonical_rule_id == template.canonical_rule_id
+    - diagnostic.rule_pack_id == active_pack.pack_id
+    - diagnostic.rule_pack_version == active_pack.pack_version
+    - diagnostic.document_identity == current_document.document_id
+    - diagnostic.document_version == current_document.version
+  stale_behavior: suppress_action
+eligibility:
+  required:
+    - analysis status is complete
+    - diagnostic limitations do not prohibit remediation
+    - template safety level is deterministic
+    - template targets current document only
+    - document version matches
+    - active pack matches
+    - target path is not protected
+    - all edits validate
+    - edits do not overlap
+  suppress_when:
+    - analysis incomplete
+    - analysis failed
+    - result stale
+    - document closed
+    - active pack changed
+    - template unsupported
+    - edit range invalid
+    - edit count exceeds limit
+    - replacement size exceeds limit
+    - target is protected
+    - edits overlap
+    - template requests command execution
+limits:
+  maximum_actions_per_diagnostic: 5
+  maximum_edits_per_action: 50
+  maximum_replacement_bytes_per_edit: 65536
+  maximum_total_replacement_bytes: 262144
+  maximum_preview_characters: 200000
+  maximum_title_characters: 200
+scope:
+  allowed:
+    - current_document
+  prohibited:
+    - other_documents
+    - workspace_wide
+    - repository_wide
+    - external_files
+    - virtual_documents
+    - untitled_documents
+protected_paths:
+  exact:
+    - .git
+    - .env
+    - .npmrc
+    - .pypirc
+    - credentials.json
+  prefixes:
+    - .git/
+    - .github/workflows/
+    - .l9/trust/
+    - .l9-runtime/
+    - state/trust/
+    - state/activation/
+    - state/packs/
+    - state/retirement/
+    - state/quarantine/
+  suffixes:
+    - .pem
+    - .key
+    - .p12
+    - .pfx
+    - .crt
+    - .cer
+edit_validation:
+  indexing:
+    lines: zero_based
+    characters: zero_based
+    end: exclusive
+  requirements:
+    - start and end are non-negative
+    - end does not precede start
+    - range exists in current document
+    - UTF-16 LSP positions convert safely
+    - replacement is valid UTF-8
+    - edits are deterministically ordered
+    - edits do not overlap
+workspace_edit:
+  allowed_fields:
+    - changes
+  prohibited_fields:
+    - documentChanges
+    - changeAnnotations
+    - create
+    - rename
+    - delete
+    - command
+  invariant: >
+    One code action produces edits for exactly one currently open document.
+preview:
+  required: true
+  includes:
+    - action title
+    - canonical rule identity
+    - finding identity
+    - template identity
+    - rule-pack identity
+    - document version
+    - bounded unified diff
+    - limitations
+  source_content_storage: prohibited
+application:
+  authority: editor_client
+  automatic_application: prohibited
+  explicit_user_action_required: true
+post_application:
+  required:
+    - editor supplies new document version
+    - previous analysis is cancelled
+    - document overlay is updated
+    - diagnostics are re-evaluated
+    - action result is not assumed successful before re-analysis
+provenance:
+  required:
+    - action_id
+    - template_id
+    - finding_id
+    - canonical_rule_id
+    - provider_rule_id
+    - document_identity
+    - document_version
+    - rule_pack_id
+    - rule_pack_version
+    - corpus_snapshot
+    - analysis_request_id
+    - edit_digest
+phase:
+  id: LSP-P4
+  status: implemented
+  includes:
+    - remediation template validation
+    - diagnostic binding
+    - protected-path policy
+    - edit validation
+    - overlap detection
+    - WorkspaceEdit construction
+    - preview generation
+    - provenance
+    - code-action publication
+    - post-edit re-analysis contract
+  excludes:
+    - telemetry transport
+    - effectiveness aggregation
+    - automatic repair
+    - multi-file repair

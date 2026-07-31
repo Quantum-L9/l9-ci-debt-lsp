@@ -1,0 +1,224 @@
+schema: l9.lsp-diagnostic-contract/v1
+metadata:
+  repository: Quantum-L9/l9-ci-debt-lsp
+  phase: LSP-P3
+  status: authoritative
+authority:
+  sdk_owns:
+    - finding_id
+    - canonical_rule_id
+    - provider_rule_id
+    - finding fingerprint meaning
+    - canonical severity
+    - evidence semantics
+    - source-location semantics
+    - finding limitations
+  intelligence_owns:
+    - rule_pack_version
+    - corpus_snapshot
+    - compiler_version
+    - taxonomy_version
+    - prevention rule semantics
+  lsp_owns:
+    - LSP Diagnostic representation
+    - editor severity mapping
+    - message formatting
+    - related information presentation
+    - publication lifecycle
+    - stale-result suppression
+    - diagnostic count limits
+    - incomplete-analysis presentation
+identity:
+  required:
+    - finding_id
+    - canonical_rule_id
+    - provider_rule_id
+    - source_location
+    - document_identity
+    - rule_pack_id
+    - rule_pack_version
+    - corpus_snapshot
+  preserved_exactly:
+    - finding_id
+    - canonical_rule_id
+    - provider_rule_id
+    - document_identity
+    - rule_pack_id
+    - rule_pack_version
+    - corpus_snapshot
+  prohibited:
+    - generate replacement finding IDs
+    - derive finding IDs from editor message text
+    - change canonical rule identity
+    - change provider rule identity
+    - reinterpret finding fingerprints
+    - collapse distinct findings by message text
+finding_input:
+  protocol: l9.sdk-finding/v1
+  required:
+    - finding_id
+    - canonical_rule_id
+    - provider_rule_id
+    - message
+    - severity
+    - source_location
+    - evidence
+    - limitations
+  source_location:
+    required:
+      - document_identity
+      - uri
+      - start_line
+      - start_character
+      - end_line
+      - end_character
+    indexing:
+      lines: zero_based
+      characters: zero_based
+      end: exclusive
+    validation:
+      - start values are non-negative
+      - end is not before start
+      - URI identifies the evaluated document or a valid related document
+      - ranges outside the current document are clamped only when safe
+      - invalid primary ranges suppress the finding
+diagnostic_projection:
+  source: l9-ci-debt
+  code: canonical_rule_id
+  data:
+    required:
+      - schema_version
+      - finding_id
+      - canonical_rule_id
+      - provider_rule_id
+      - document_identity
+      - document_version
+      - rule_pack_id
+      - rule_pack_version
+      - corpus_snapshot
+      - analysis_request_id
+      - analysis_status
+      - limitations
+  severity_mapping:
+    critical: error
+    error: error
+    warning: warning
+    information: information
+    info: information
+    hint: hint
+    unknown: warning
+  tags:
+    deprecated: DiagnosticTag.Deprecated
+    unnecessary: DiagnosticTag.Unnecessary
+  message:
+    maximum_characters: 2000
+    source_content_injection: prohibited
+    absolute_path_injection: prohibited
+    secret_value_injection: prohibited
+related_information:
+  sources:
+    - SDK evidence source locations
+    - explicit related source locations
+  maximum_entries_per_diagnostic: 20
+  deterministic_order:
+    - uri
+    - start_line
+    - start_character
+    - message
+evidence:
+  presentation:
+    - evidence kind
+    - redacted summary
+    - related location
+  prohibited:
+    - raw source content
+    - secret values
+    - absolute filesystem paths
+    - raw logs
+    - full corpus records
+ordering:
+  document_diagnostics:
+    - start_line
+    - start_character
+    - end_line
+    - end_character
+    - severity_rank
+    - canonical_rule_id
+    - finding_id
+deduplication:
+  identity:
+    - finding_id
+    - canonical_rule_id
+    - document_identity
+    - source_range
+    - rule_pack_id
+  duplicate_behavior: retain_one_canonical_diagnostic
+  conflicting_duplicate_behavior:
+    - retain deterministic first representation
+    - publish limitation
+    - do not merge canonical identities
+limits:
+  maximum_diagnostics_per_document: 200
+  maximum_related_information_per_diagnostic: 20
+  maximum_message_characters: 2000
+  overflow_behavior:
+    - retain highest-priority deterministic prefix
+    - publish one limitation diagnostic
+    - do not claim complete clean analysis
+incomplete_analysis:
+  behavior:
+    - preserve last known-good findings when protocol-safe
+    - publish limitation diagnostic
+    - suppress unsafe code actions
+    - never publish empty successful diagnostics as PASS
+  limitation_diagnostic:
+    source: l9-ci-debt
+    code: l9.analysis.incomplete
+    severity: warning
+    range: beginning_of_document
+publication:
+  preconditions:
+    - result matches current document version
+    - result matches current workspace generation
+    - result matches active pack
+    - result is not cancelled
+    - result is not stale
+    - document remains open
+  stale_behavior: discard
+  cancelled_behavior:
+    - do not publish replacement diagnostics
+    - preserve existing diagnostics where protocol-safe
+  failed_behavior:
+    - publish limitation diagnostic
+    - preserve last known-good findings where protocol-safe
+  close_behavior:
+    - publish empty diagnostic set
+    - delete publication state
+privacy:
+  diagnostic_data:
+    source_content: prohibited
+    absolute_paths: prohibited
+    secrets: prohibited
+    raw_logs: prohibited
+    corpus_records: prohibited
+phase:
+  id: LSP-P3
+  status: implemented
+  includes:
+    - SDK finding consumer schema
+    - source-location validation
+    - canonical diagnostic projection
+    - identity preservation
+    - evidence-related information
+    - deterministic ordering
+    - deterministic de-duplication
+    - bounded diagnostic publication
+    - incomplete-analysis diagnostics
+    - stale-safe publisher
+    - pygls publication integration
+  excludes:
+    - executable quick fixes
+    - WorkspaceEdit construction
+    - edit conflict resolution
+    - protected-path write policy
+    - telemetry delivery

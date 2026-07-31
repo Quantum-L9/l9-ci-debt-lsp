@@ -1,0 +1,57 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "l9://lsp/pack-installation-state/v1",
+  "title": "L9 LSP Pack Installation State",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "pack_id",
+    "pack_version",
+    "state",
+    "compatibility_state",
+    "installed_path",
+    "limitations"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "l9.pack-installation-state/v1"
+    },
+    "pack_id": {
+      "type": "string",
+      "pattern": "^pack_[0-9a-f]{64}$"
+    },
+    "pack_version": {
+      "type": "string"
+    },
+    "state": {
+      "enum": [
+        "discovered",
+        "validated",
+        "verified",
+        "staged",
+        "installed",
+        "active",
+        "previous_known_good",
+        "quarantined",
+        "rejected"
+      ]
+    },
+    "compatibility_state": {
+      "enum": [
+        "unknown",
+        "compatible",
+        "incompatible"
+      ]
+    },
+    "installed_path": {
+      "type": ["string", "null"]
+    },
+    "limitations": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  }
+}

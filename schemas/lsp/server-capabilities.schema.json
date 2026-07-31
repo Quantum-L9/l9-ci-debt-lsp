@@ -1,0 +1,63 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "l9://lsp/server-capabilities/v1",
+  "title": "L9 LSP Server Capabilities",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "phase",
+    "capabilities",
+    "limitations"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "l9.lsp-server-capabilities/v1"
+    },
+    "phase": {
+      "const": "LSP-P0"
+    },
+    "capabilities": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "pack_descriptor_validation",
+        "pack_compatibility_evaluation",
+        "pack_installation",
+        "pack_activation",
+        "diagnostics",
+        "code_actions",
+        "telemetry"
+      ],
+      "properties": {
+        "pack_descriptor_validation": {
+          "const": true
+        },
+        "pack_compatibility_evaluation": {
+          "const": true
+        },
+        "pack_installation": {
+          "const": false
+        },
+        "pack_activation": {
+          "const": false
+        },
+        "diagnostics": {
+          "const": false
+        },
+        "code_actions": {
+          "const": false
+        },
+        "telemetry": {
+          "const": false
+        }
+      }
+    },
+    "limitations": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  }
+}

@@ -1,0 +1,77 @@
+schema: l9.final-acceptance-gates/v1
+
+repository: Quantum-L9/l9-ci-debt-lsp
+version: 1.0.0
+status: architecturally_complete
+
+gates:
+ownership_boundary:
+required: true
+expectation: serving_only
+
+corpus_dependency:
+required: true
+expectation: prohibited
+
+pack_integrity:
+required: true
+expectation:
+- checksum_verified
+- signature_verified
+- compatibility_verified
+- atomic_installation
+- explicit_activation
+- previous_known_good
+
+incremental_runtime:
+required: true
+expectation:
+- public_SDK_boundary
+- document_versions
+- cancellation
+- bounded_invalidation
+- stale_result_suppression
+
+diagnostics:
+required: true
+expectation:
+- canonical_identity_preserved
+- deterministic_ordering
+- incomplete_not_clean
+- stale_safe_publication
+
+code_actions:
+required: true
+expectation:
+- deterministic_templates
+- exact_version_binding
+- single_document_only
+- protected_paths
+- explicit_user_approval
+- no_commands
+
+telemetry:
+required: true
+expectation:
+- disabled_by_default
+- explicit_consent_or_org_policy
+- no_source_content
+- no_paths
+- no_developer_identity
+- bounded_storage
+- fail_open_editor
+- intelligence_owned_effectiveness
+
+release_quality:
+required: true
+expectation:
+- schemas_valid
+- tests_pass
+- mypy_pass
+- ruff_pass
+- coverage_at_least_85_percent
+
+final_invariant: >
+  The repository serves verified immutable prevention packs through the public
+  SDK analysis contract, publishes canonical diagnostics and bounded
+  user-approved remediation, and emits only privacy-safe effectiveness events.

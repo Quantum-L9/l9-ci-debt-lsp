@@ -1,0 +1,48 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "l9://lsp/retired-pack-registry/v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "retired"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "l9.retired-pack-registry/v1"
+    },
+    "retired": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "pack_id",
+          "pack_version",
+          "reason",
+          "retired_at",
+          "issuer"
+        ],
+        "properties": {
+          "pack_id": {
+            "type": "string",
+            "pattern": "^pack_[0-9a-f]{64}$"
+          },
+          "pack_version": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "retired_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "issuer": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}

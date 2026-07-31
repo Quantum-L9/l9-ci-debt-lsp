@@ -1,0 +1,64 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "l9://lsp/installation-record/v1",
+  "title": "L9 LSP Immutable Pack Installation Record",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "pack_id",
+    "pack_version",
+    "archive_sha256",
+    "manifest_sha256",
+    "signer_key_id",
+    "compatibility_state",
+    "installed_at",
+    "content_hashes",
+    "limitations"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "l9.pack-installation-record/v1"
+    },
+    "pack_id": {
+      "type": "string",
+      "pattern": "^pack_[0-9a-f]{64}$"
+    },
+    "pack_version": {
+      "type": "string"
+    },
+    "archive_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "manifest_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "signer_key_id": {
+      "type": "string",
+      "pattern": "^key_[0-9a-f]{64}$"
+    },
+    "compatibility_state": {
+      "const": "compatible"
+    },
+    "installed_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "content_hashes": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "string",
+        "pattern": "^[0-9a-f]{64}$"
+      }
+    },
+    "limitations": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "uniqueItems": true
+    }
+  }
+}

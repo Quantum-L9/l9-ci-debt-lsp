@@ -1,0 +1,62 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "l9://lsp/runtime-rule/v1",
+  "title": "L9 LSP Runtime Rule",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "canonical_rule_id",
+    "candidate_id",
+    "kind",
+    "pack_id",
+    "pack_version",
+    "corpus_snapshot",
+    "match_contract",
+    "action_contract",
+    "limitations"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "l9.lsp-runtime-rule/v1"
+    },
+    "canonical_rule_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "candidate_id": {
+      "type": "string",
+      "pattern": "^candidate_[0-9a-f]{64}$"
+    },
+    "kind": {
+      "enum": [
+        "ast_grep",
+        "sdk_architecture_contract",
+        "generated_invariant"
+      ]
+    },
+    "pack_id": {
+      "type": "string",
+      "pattern": "^pack_[0-9a-f]{64}$"
+    },
+    "pack_version": {
+      "type": "string"
+    },
+    "corpus_snapshot": {
+      "type": "string",
+      "pattern": "^cs_[0-9a-f]{64}$"
+    },
+    "match_contract": {
+      "type": "object"
+    },
+    "action_contract": {
+      "type": "object"
+    },
+    "limitations": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  }
+}

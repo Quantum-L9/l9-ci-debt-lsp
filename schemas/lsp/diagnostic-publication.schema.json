@@ -1,0 +1,87 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "l9://lsp/diagnostic-publication/v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "publication_id",
+    "workspace_id",
+    "workspace_generation",
+    "document_id",
+    "document_uri",
+    "document_version",
+    "rule_pack_id",
+    "rule_pack_version",
+    "analysis_request_id",
+    "analysis_status",
+    "diagnostic_count",
+    "diagnostics",
+    "limitations"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "l9.diagnostic-publication/v1"
+    },
+    "publication_id": {
+      "type": "string",
+      "pattern": "^publication_[0-9a-f]{64}$"
+    },
+    "workspace_id": {
+      "type": "string",
+      "pattern": "^workspace_[0-9a-f]{64}$"
+    },
+    "workspace_generation": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "document_id": {
+      "type": "string",
+      "pattern": "^doc_[0-9a-f]{64}$"
+    },
+    "document_uri": {
+      "type": "string"
+    },
+    "document_version": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "rule_pack_id": {
+      "type": "string",
+      "pattern": "^pack_[0-9a-f]{64}$"
+    },
+    "rule_pack_version": {
+      "type": "string"
+    },
+    "analysis_request_id": {
+      "type": "string",
+      "pattern": "^request_[0-9a-f]{64}$"
+    },
+    "analysis_status": {
+      "enum": [
+        "complete",
+        "incomplete",
+        "failed"
+      ]
+    },
+    "diagnostic_count": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 201
+    },
+    "diagnostics": {
+      "type": "array",
+      "items": {
+        "$ref": "l9://lsp/canonical-diagnostic/v1"
+      },
+      "maxItems": 201
+    },
+    "limitations": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "uniqueItems": true
+    }
+  }
+}

@@ -1,3 +1,0 @@
-{
-  "install": "npm install && python -m pip install --upgrade pip && pip install pygls jsonschema pydantic pyyaml rich typer pytest pytest-asyncio ruff mypy types-PyYAML"
-}

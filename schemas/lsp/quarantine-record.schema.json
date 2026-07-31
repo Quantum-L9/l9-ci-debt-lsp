@@ -1,0 +1,55 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "l9://lsp/quarantine-record/v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "quarantine_id",
+    "reason_code",
+    "reason",
+    "archive_sha256",
+    "manifest_sha256",
+    "observed_at",
+    "limitations"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "l9.pack-quarantine-record/v1"
+    },
+    "quarantine_id": {
+      "type": "string",
+      "pattern": "^quarantine_[0-9a-f]{64}$"
+    },
+    "reason_code": {
+      "type": "string"
+    },
+    "reason": {
+      "type": "string"
+    },
+    "archive_sha256": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "manifest_sha256": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "observed_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "limitations": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  }
+}

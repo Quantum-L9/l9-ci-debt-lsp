@@ -1,0 +1,199 @@
+schema: l9.lsp-incremental-analysis-contract/v1
+metadata:
+  repository: Quantum-L9/l9-ci-debt-lsp
+  phase: LSP-P2
+  status: authoritative
+authority:
+  lsp_owns:
+    - workspace lifecycle
+    - document lifecycle
+    - document overlays
+    - document versions
+    - scheduling
+    - debounce
+    - cancellation
+    - stale-result suppression
+    - bounded invalidation
+    - active-pack selection
+    - latency measurement
+    - presentation-layer limitations
+  sdk_owns:
+    - canonical analysis semantics
+    - finding construction
+    - finding identity
+    - evidence construction
+    - source-location semantics
+    - rule evaluation semantics
+    - partial-parse semantics
+  prohibited:
+    - importing SDK private modules
+    - redefining canonical SDK findings
+    - reconstructing canonical evidence
+    - treating incomplete analysis as PASS
+    - network calls during normal diagnostics
+    - persistent database writes per keystroke
+    - full repository scans per keystroke
+sdk_interface:
+  name: AnalysisSession
+  contract: l9.sdk-analysis-session/v1
+  operations:
+    - open_workspace
+    - close_workspace
+    - open_document
+    - update_document
+    - evaluate_document
+    - close_document
+    - invalidate_dependencies
+  required_properties:
+    - deterministic for identical inputs
+    - cancellation-aware
+    - document-version aware
+    - active-pack aware
+    - offline
+    - partial-parse capable
+    - bounded invalidation
+workspace:
+  identity:
+    representation: pseudonymous
+    absolute_path_storage: prohibited
+  lifecycle:
+    states:
+      - created
+      - open
+      - closing
+      - closed
+  limits:
+    maximum_open_documents: 5000
+    maximum_document_bytes: 5242880
+    maximum_total_overlay_bytes: 268435456
+    maximum_dependency_edges: 100000
+    maximum_invalidated_documents_per_change: 250
+document:
+  identity:
+    source: normalized URI hash
+    prefix: doc_
+    algorithm: SHA-256
+  versions:
+    type: non_negative_integer
+    opening_version: any_non_negative_integer
+    update_rule: strictly_increasing
+    stale_update_behavior: reject
+    stale_result_behavior: discard
+  overlays:
+    storage: memory_only
+    source_content_persistence: prohibited
+    close_behavior: delete_content
+    workspace_close_behavior: delete_all_content
+  content:
+    encoding: UTF-8
+    maximum_bytes: 5242880
+    normalization: preserve_exact_editor_text
+scheduling:
+  ordering:
+    primary: workspace_id
+    secondary: document_identity
+    tertiary: document_version
+  concurrency:
+    maximum_global_evaluations: 4
+    maximum_workspace_evaluations: 2
+    maximum_document_evaluations: 1
+  supersession:
+    new_version_cancels_older_pending_work: true
+    new_version_marks_older_running_work_stale: true
+  fairness:
+    strategy: bounded_fifo
+    starvation_prohibited: true
+cancellation:
+  cooperative: true
+  reasons:
+    - client_cancelled
+    - document_updated
+    - document_closed
+    - workspace_closed
+    - server_shutdown
+    - timeout
+    - pack_changed
+  invariant: >
+    Cancellation never publishes a successful complete-analysis result.
+invalidation:
+  source: SDK dependency information
+  direction: reverse_dependents
+  maximum_documents_per_change: 250
+  overflow_behavior:
+    - mark workspace analysis incomplete
+    - publish limitation
+    - schedule bounded workspace refresh
+    - do not report false PASS
+stale_results:
+  comparison:
+    - workspace generation
+    - document version
+    - active pack identity
+    - analysis request identity
+  stale_if:
+    - workspace generation changed
+    - document closed
+    - document version advanced
+    - active pack changed
+    - request superseded
+  publication_behavior: discard
+latency:
+  clocks:
+    measurement: monotonic
+    timestamps: UTC
+  document_local_ms:
+    p50: 50
+    p95: 200
+  bounded_workspace_ms:
+    p95: 1000
+  evaluation_timeout_ms: 5000
+  classification:
+    - within_budget
+    - elevated
+    - exceeded
+    - timed_out
+    - cancelled
+result:
+  states:
+    - complete
+    - incomplete
+    - cancelled
+    - stale
+    - failed
+  complete_requirements:
+    - SDK evaluation completed
+    - document version unchanged
+    - workspace generation unchanged
+    - active pack unchanged
+    - request not cancelled
+  incomplete_requirements:
+    - limitations non_empty
+  failed_behavior:
+    - preserve known-good diagnostics where protocol-safe
+    - publish analysis limitation
+    - do not publish empty success as PASS
+runtime:
+  normal_network_dependency: prohibited
+  source_content_logging: prohibited
+  absolute_path_logging: prohibited
+  source_content_telemetry: prohibited
+phase:
+  id: LSP-P2
+  status: implemented
+  includes:
+    - AnalysisSession protocol
+    - in-memory workspace manager
+    - document overlays
+    - cancellation
+    - deterministic scheduler
+    - stale-result suppression
+    - bounded invalidation
+    - active-pack generation tracking
+    - latency measurement
+    - incomplete-analysis semantics
+    - runtime tests
+  excludes:
+    - final Diagnostic conversion
+    - related information presentation
+    - code action construction
+    - telemetry transport

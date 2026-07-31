@@ -1,0 +1,62 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "l9://lsp/activation-history-entry/v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "sequence",
+    "operation",
+    "activation_id",
+    "target_pack_id",
+    "previous_pack_id",
+    "occurred_at",
+    "status",
+    "limitations"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "l9.pack-activation-history-entry/v1"
+    },
+    "sequence": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "operation": {
+      "enum": [
+        "activate",
+        "rollback",
+        "recovery"
+      ]
+    },
+    "activation_id": {
+      "type": "string",
+      "pattern": "^activation_[0-9a-f]{64}$"
+    },
+    "target_pack_id": {
+      "type": "string"
+    },
+    "previous_pack_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "occurred_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "status": {
+      "enum": [
+        "succeeded",
+        "failed"
+      ]
+    },
+    "limitations": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  }
+}
