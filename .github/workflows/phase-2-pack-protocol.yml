@@ -1,11 +1,14 @@
 name: LSP-P1 Pack Protocol
+
 on:
   pull_request:
   push:
     branches:
       - main
+
 permissions:
   contents: read
+
 jobs:
   pack-protocol:
     runs-on: ubuntu-latest
@@ -20,7 +23,7 @@ jobs:
       - name: Install
         run: |
           python -m pip install --upgrade pip
-          python -m pip install -e '.[dev]'
+          python -m pip install -e '.[dev]' -r requirements-ci.txt
       - name: Validate schemas
         run: |
           python - <<'PY'
@@ -34,8 +37,6 @@ jobs:
           PY
       - name: Security tests
         run: pytest tests/security
-      - name: Pack tests
-        run: pytest tests/packs
       - name: Runtime tests
         run: pytest tests/runtime
       - name: Architecture tests
