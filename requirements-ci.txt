@@ -1,11 +1,23 @@
-# CI-only dependencies for the strict mypy gate (`mypy src`).
+# CI-only dependencies for the strict mypy gate.
 #
 # Runtime dependencies are declared in pyproject.toml; the `dev` extra pins the
-# tools (mypy, ruff, pytest). This file adds the third-party *type stub*
-# packages that mypy needs to type-check the code that imports libraries which
-# ship no inline types. Without it, `mypy src` fails with
-# `import-untyped: Library stubs not installed for "jsonschema"`.
+# tools (mypy, ruff, pytest). This file adds what a *deps-light* type-check job
+# needs on top of that:
+#
+#  1. Third-party type stubs for libraries that ship no inline types. Without
+#     types-jsonschema, mypy fails with
+#     `import-untyped: Library stubs not installed for "jsonschema"`.
+#
+#  2. Typed runtime deps that mypy must import to resolve the public API. The
+#     governed lint preset (.github/workflows/l9-lint-test.yml) installs this
+#     file but NOT the package itself, so without pygls/lsprotocol present the
+#     `@server.feature` decorators resolve to `Any` and strict mypy's
+#     `disallow_untyped_decorators` reports untyped-decorator errors. They are
+#     already installed transitively when the package is (e.g. `.[dev]`), so
+#     listing them here is redundant-but-harmless for package-installing jobs.
 #
 # Install alongside the dev extra in CI:
 #   python -m pip install -e '.[dev]' -r requirements-ci.txt
 types-jsonschema>=4.23,<5
+pygls>=1.3,<2
+lsprotocol>=2023.0.1,<2024
