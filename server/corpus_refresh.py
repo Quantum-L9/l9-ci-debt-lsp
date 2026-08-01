@@ -71,7 +71,11 @@ def refresh_from_corpus(
         rules = payload["rules"]
     elif isinstance(payload, list):
         rules = payload
-        payload = {"rules": rules, "schema_version": "1.0", "producer": "corpus-highway"}
+        payload = {
+            "rules": rules,
+            "schema_version": "1.0",
+            "producer": "corpus-highway",
+        }
     else:
         raise ValueError(f"Corpus rules at {source} must be JSON object or array")
 
