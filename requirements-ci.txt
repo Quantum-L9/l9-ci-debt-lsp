@@ -8,4 +8,4 @@
 #
 # Install alongside the dev extra in CI:
 #   python -m pip install -e '.[dev]' -r requirements-ci.txt
-types-jsonschema>=4.23,<5
+types-jsonschema>=4.26.0.20260518,<5
