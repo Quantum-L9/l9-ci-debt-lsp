@@ -25,7 +25,7 @@ dev = [
   "pytest>=8.3,<9",
   "pytest-cov>=5,<7",
   "pytest-asyncio>=0.24,<1",
-  "ruff>=0.6,<1"
+  "ruff>=0.16.3,<1"
 ]
 [project.scripts]
 l9-debt-lsp = "l9_debt_lsp.server:main"
