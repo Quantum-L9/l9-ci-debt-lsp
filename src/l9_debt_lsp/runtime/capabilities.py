@@ -70,8 +70,43 @@ def phase_capabilities() -> dict[str, Any]:
             "absolute_path_telemetry": False,
             "developer_identity_telemetry": False,
         },
+        # Which upstream inputs are real, and which are architecture intent.
+        # `sdk_finding_validation` above is genuine code -- the consumer schema
+        # exists and is enforced -- but validating a contract is not the same as
+        # receiving one, and the capability list alone cannot express that.
+        "input_status": {
+            "active": [
+                {
+                    "contract": "l9.debt-defense/v1",
+                    "producer": "Quantum-L9/l9-ci-debt-intelligence",
+                    "note": "Defense-pack consumption is the editor path in v0.1.",
+                }
+            ],
+            "inactive": [
+                {
+                    "contract": "l9.sdk-finding/v1",
+                    "producer": None,
+                    "status": "planned",
+                    "note": (
+                        "Direct SDK finding consumption is inactive. No producer "
+                        "emits l9.sdk-finding/v1; the SDK's tokens are "
+                        "l9.finding-bundle/v1, l9.observation, l9.gate-result/v1, "
+                        "and l9.agent-review-projection/v1. The shapes also "
+                        "differ beyond renaming, and the severity vocabularies "
+                        "share only 'critical' and 'unknown', so activating this "
+                        "requires an explicit projection contract rather than a "
+                        "field mapping."
+                    ),
+                }
+            ],
+        },
         "limitations": [
             "A concrete public SDK AnalysisSession binding must be configured.",
+            (
+                "Direct SDK finding consumption (l9.sdk-finding/v1) is inactive "
+                "in v0.1: no producer emits the contract. The active editor "
+                "input is intelligence defense packs (l9.debt-defense/v1)."
+            ),
             (
                 "Telemetry delivery requires explicit policy and an allowlisted "
                 "HTTPS endpoint."
