@@ -12,7 +12,7 @@
 The L9 constellation consists of multiple repos that produce and consume intelligence artifacts:
 
 - **@l9/harness** — produces golden principles, scanner rules, HITL policy
-- **PR_Repair** — produces findings, telemetry, learning packets; consumes rules and policy
+- **l9-pr-repair** (formerly PR_Repair) — produces findings, telemetry, learning packets; consumes rules and policy
 - **l9-ci-debt-lsp** — consumes compiled rules for IDE diagnostics
 
 These repos need to share data bidirectionally. The data must flow automatically (no manual steps), extensibly (new repos can join without modifying existing ones), and reliably (no silent data loss).
@@ -65,7 +65,7 @@ A single `l9-corpus` repo mounted as a submodule in every participating repo.
 A monolithic npm package that handles all data flow internally.
 
 **Rejected because:**
-- Forces TypeScript/Node.js on Python repos (PR_Repair, l9-ci-debt-lsp)
+- Forces TypeScript/Node.js on Python repos (l9-pr-repair, l9-ci-debt-lsp)
 - Requires installation and version management
 - Couples the integration mechanism to a specific runtime
 - Makes the integration surface opaque (hidden in package internals)
@@ -107,7 +107,7 @@ CI workflows that trigger cross-repo dispatches on push events.
 
 | Repo | PR | Status |
 |------|-----|--------|
-| PR_Repair | [#20](https://github.com/Quantum-L9/PR_Repair/pull/20) | Open |
+| l9-pr-repair | [#20](https://github.com/Quantum-L9/l9-pr-repair/pull/20) | Open |
 | l9-ci-debt-lsp | [#2](https://github.com/Quantum-L9/l9-ci-debt-lsp/pull/2) | Open |
 | @l9/harness | Local update | In progress |
 

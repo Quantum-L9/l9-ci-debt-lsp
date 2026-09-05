@@ -61,7 +61,7 @@ dependency_contract:
   must_not_depend_on:
     - Quantum-L9/l9-ci-core
     - Quantum-L9/l9-ci-debt-resolver
-    - Quantum-L9/PR_Repair
+    - Quantum-L9/l9-pr-repair
     - Debt Intelligence corpus internals
   invariant: >
     Normal diagnostics never require access to the canonical fleet corpus.
