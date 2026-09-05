@@ -21,6 +21,7 @@ from pygls.server import LanguageServer
 
 from l9_debt_lsp import __version__
 from l9_debt_lsp.actions.lsp_types import to_lsp_code_action
+from l9_debt_lsp.analysis.errors import WorkspaceNotFoundError
 from l9_debt_lsp.analysis.identity import (
     document_identity,
     workspace_identity,
@@ -189,7 +190,10 @@ async def did_open(
     workspace_id = workspace_identity(workspace_uri)
     try:
         runtime.workspaces.get_workspace_nowait(workspace_id)
-    except Exception:
+    except WorkspaceNotFoundError:
+        # "Not registered yet" is the only condition that should open a
+        # workspace here; get_workspace_nowait raises exactly this. Catching
+        # Exception also opened a fresh workspace on unrelated faults.
         await runtime.open_workspace(
             workspace_uri=workspace_uri,
             pack=resolve_pack_context(),
@@ -307,6 +311,11 @@ def l9_telemetry_report(
     event = payload.get("event")
     if not isinstance(event, str):
         return {"status": "ignored", "reason": "missing event"}
+    # Deliberately broad, per ADR-LSP-021..023 quoted in the docstring above:
+    # telemetry emission fails closed and must never block the editor, so an
+    # unanticipated fault has to become {"status": "error"} rather than
+    # propagate. Exception (not BaseException) keeps cancellation propagating.
+    # nosemgrep: l9.baseline.python.broad-except
     try:
         _dispatch_telemetry(effectiveness_telemetry(), event, payload)
     except Exception:

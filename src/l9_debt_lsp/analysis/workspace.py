@@ -140,7 +140,11 @@ class WorkspaceManager:
                 version=version,
                 text=text,
             )
-        except Exception:
+        except BaseException:
+            # BaseException, not Exception: this is an async path and
+            # asyncio.CancelledError derives from BaseException, so cancelling
+            # the SDK call left the half-registered document in state instead
+            # of compensating. The block re-raises, so nothing is swallowed.
             async with self._lock:
                 state.documents.pop(document_id, None)
                 state.generation += 1
@@ -185,7 +189,10 @@ class WorkspaceManager:
                 version=version,
                 text=text,
             )
-        except Exception:
+        except BaseException:
+            # See open_document above: CancelledError is a BaseException, and
+            # under `except Exception` a cancelled update left the overlay
+            # holding text the SDK never accepted. The block re-raises.
             async with self._lock:
                 overlay.text = previous_text
                 overlay.version = previous_version
