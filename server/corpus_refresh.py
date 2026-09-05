@@ -17,6 +17,7 @@ Usage:
     python3.12 server/corpus_refresh.py --corpus-dir .l9/corpus
     python3.12 server/corpus_refresh.py --corpus-dir /path/to/sibling-repo/.l9/corpus
 """
+
 from __future__ import annotations
 
 import argparse

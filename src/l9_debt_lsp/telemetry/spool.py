@@ -12,7 +12,7 @@ from l9_debt_lsp.packs.jsonio import (
 )
 from l9_debt_lsp.packs.time import parse_utc, utc_now
 
-from .errors import TelemetryStorageError
+from .errors import TelemetryError, TelemetryStorageError
 from .models import TelemetryEvent
 from .privacy import validate_privacy
 
@@ -72,7 +72,12 @@ class TelemetrySpool:
                         document,
                     )
                 )
-            except Exception:
+            except (OSError, ValueError, KeyError, TelemetryError):
+                # Every way a spooled file can be unusable: unreadable (OSError),
+                # not decodable or not a JSON object (ValueError), missing a
+                # required field (KeyError), or privacy-rejected
+                # (TelemetryPrivacyError, a TelemetryError). A fault outside
+                # this set is a bug here, not a bad event, and must surface.
                 self.move_to_dead_letter(
                     path,
                     reason="invalid_local_event",
@@ -138,7 +143,10 @@ class TelemetrySpool:
                 occurred_at = parse_utc(str(document["occurred_at"]))
                 if occurred_at < cutoff:
                     path.unlink(missing_ok=True)
-            except Exception:
+            except (OSError, ValueError, KeyError):
+                # Unreadable file, undecodable JSON, missing occurred_at, or an
+                # unparseable timestamp. parse_utc raises ValueError; no
+                # TelemetryError is reachable on this path.
                 self.move_to_dead_letter(
                     path,
                     reason="retention_parse_failure",
