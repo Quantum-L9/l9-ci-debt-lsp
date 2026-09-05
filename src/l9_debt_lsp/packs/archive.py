@@ -150,6 +150,9 @@ def extract_archive_safely(
                 finally:
                     source.close()
         return inspection
-    except Exception:
+    except BaseException:
+        # BaseException, not Exception: interrupting an extraction is exactly
+        # when a partially written destination must not survive. The block
+        # re-raises, so this only widens the cleanup, never the swallowing.
         shutil.rmtree(destination, ignore_errors=True)
         raise
