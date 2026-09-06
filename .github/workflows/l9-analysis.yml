@@ -90,11 +90,27 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Run semgrep (produce raw report)
+      - id: semgrep
+        name: Run semgrep (produce raw report)
         if: steps.gov.outputs.enabled == 'true'
         run: |
           set -euo pipefail
           python -m pip install --upgrade pip semgrep
+          # `semgrep normalize` *imports* a report it did not produce, so the
+          # SDK cannot know what produced it and requires --provider-version.
+          # Read it from the binary that actually writes the report below. A
+          # hardcoded literal would name a different Semgrep than the one that
+          # ran, putting false provenance in the bundle -- worse than the
+          # missing value it replaces. `set -e` makes an unreadable version
+          # fail here rather than resurface as an argparse error inside the SDK.
+          # One line only: GITHUB_OUTPUT needs a heredoc delimiter for
+          # multi-line values, so an unguarded newline would corrupt the file.
+          version="$(semgrep --version | head -n 1 | tr -d '[:space:]')"
+          if [ -z "${version}" ]; then
+            echo "::error::semgrep --version was empty; refusing to report an unknown provider version"
+            exit 1
+          fi
+          echo "version=${version}" >> "${GITHUB_OUTPUT}"
           mkdir -p "artifacts/raw/semgrep/${L9_MATRIX_ID}"
           # ── PER-LANGUAGE RULESETS ──────────────────────────────────────────
           # Python repo:   --config p/python
@@ -128,6 +144,7 @@ jobs:
           output: .l9/runtime/${{ env.L9_MATRIX_ID }}/finding-bundle.json
           root: .
           snapshot-id: ${{ github.sha }}
+          provider-version: ${{ steps.semgrep.outputs.version }}
           revision: ${{ github.sha }}
           strict: ${{ steps.gov.outputs.strict }}
           required: ${{ steps.gov.outputs.required-provider }}

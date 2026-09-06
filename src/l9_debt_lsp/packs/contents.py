@@ -9,10 +9,14 @@ from .errors import ArchiveIntegrityError, PackValidationError
 from .hashing import sha256_file
 from .jsonio import load_json
 
+#: The checksum document cannot carry its own digest -- writing it changes the
+#: bytes being digested -- so it is the one member excluded from coverage.
+CHECKSUMS_MEMBER = "checksums.json"
+
 REQUIRED_MEMBERS = (
     "defense-pack.json",
     "compatibility.json",
-    "checksums.json",
+    CHECKSUMS_MEMBER,
 )
 
 
@@ -51,6 +55,12 @@ def load_checksums(root: Path) -> dict[str, str]:
     consumer that accepts one cannot tell a format change from a valid
     document, which is how this divergence survived. `schema_version` is now
     required and matched exactly.
+
+    An empty `files` mapping is refused for the same reason those fixtures
+    were the problem: it is well-formed and covers nothing, so every later
+    step passes over it without objection. The producer's schema refuses it
+    too (`minProperties: 1`), but a consumer that rejects only what its
+    producer already rejects is trusting the producer, not verifying it.
     """
     document = load_json(root / "checksums.json")
     version = document.get("schema_version")
@@ -64,6 +74,11 @@ def load_checksums(root: Path) -> dict[str, str]:
     checksums = document.get("files")
     if not isinstance(checksums, dict):
         raise ArchiveIntegrityError("checksums document 'files' must be an object")
+    if not checksums:
+        raise ArchiveIntegrityError(
+            "checksums document names no members; an empty 'files' mapping "
+            "verifies nothing"
+        )
     result: dict[str, str] = {}
     for name, digest in checksums.items():
         if not isinstance(name, str):
@@ -76,10 +91,48 @@ def load_checksums(root: Path) -> dict[str, str]:
     return dict(sorted(result.items()))
 
 
+def _content_members(root: Path) -> set[str]:
+    """Archive-relative names of everything under `root` that carries content.
+
+    Real directories carry none and are skipped. Everything else counts,
+    symlinks included: `extract_archive_safely` writes only directories and
+    regular files, so a symlink here is already anomalous, and counting it
+    means the pack is refused unless the producer checksummed it rather than
+    letting an unexpected entry through unverified.
+    """
+    members: set[str] = set()
+    for path in root.rglob("*"):
+        if path.is_dir() and not path.is_symlink():
+            continue
+        members.add(path.relative_to(root).as_posix())
+    return members
+
+
 def verify_member_checksums(
     root: Path,
     checksums: dict[str, str],
 ) -> dict[str, str]:
+    """Verify every checksummed member, and that every member is checksummed.
+
+    The second half is the one that was missing. This function used to iterate
+    the mapping it was handed and report success at the end, which answers
+    "does everything named here match?" but never "is everything here named?".
+    Those differ exactly where it matters: a member the document omits is a
+    member nobody hashes, so an archive could carry an unlisted or substituted
+    file through step 13 untouched. Rejecting an empty document in
+    `load_checksums` closes only the degenerate case of that gap; partial
+    coverage is the same hole with one entry in it.
+
+    So the checksummed set must equal the archive's content members, less
+    `checksums.json`, which cannot contain its own digest. This mirrors the
+    producer's own invariant -- `l9-ci-debt-intelligence` asserts the identical
+    equality against a real assembled archive -- but asserting it here is what
+    makes it verified rather than assumed.
+
+    Order matters: coverage is checked after the per-entry loop, so an entry
+    naming a missing or traversing path still reports that specific fault
+    instead of being recast as a coverage complaint.
+    """
     verified: dict[str, str] = {}
     for relative_name, expected in checksums.items():
         relative = Path(relative_name)
@@ -94,6 +147,11 @@ def verify_member_checksums(
         if actual != expected:
             raise ArchiveIntegrityError(f"member checksum mismatch: {relative_name}")
         verified[relative_name] = actual
+    uncovered = sorted(_content_members(root) - set(verified) - {CHECKSUMS_MEMBER})
+    if uncovered:
+        raise ArchiveIntegrityError(
+            f"archive members carry no checksum entry: {uncovered}"
+        )
     return verified
 
 

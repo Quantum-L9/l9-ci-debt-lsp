@@ -175,6 +175,19 @@ class TestItRefusesRatherThanGuessing:
         with pytest.raises(ArchiveIntegrityError, match="must be SHA-256"):
             load_checksums(root)
 
+    def test_an_empty_files_mapping_is_refused(self, tmp_path: Path) -> None:
+        """The vacuous document, in the shape the envelope makes valid.
+
+        Every other rule here is satisfied -- exact version, no unknown
+        fields, `files` an object of the right type -- so this is the document
+        that reaches a consumer looking correct and verifies nothing. It is
+        also precisely what the old fixtures wrote, which is how a defect
+        refusing 100% of real packs went unnoticed.
+        """
+        root = write(tmp_path, {"schema_version": CHECKSUMS_PROTOCOL, "files": {}})
+        with pytest.raises(ArchiveIntegrityError, match="names no members"):
+            load_checksums(root)
+
 
 class TestMemberVerificationActuallyRuns:
     """Step 13 had never verified a member; these make it do so."""
@@ -200,3 +213,87 @@ class TestMemberVerificationActuallyRuns:
         for name in ("../escape.json", "rules/../../escape.json"):
             with pytest.raises(ArchiveIntegrityError, match="unsafe checksum path"):
                 verify_member_checksums(tmp_path, {name: DIGEST})
+
+
+def member(root: Path, name: str, payload: bytes) -> str:
+    """Write an archive member and return its real digest."""
+    path = root / name
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_bytes(payload)
+    return sha256_file(path)
+
+
+class TestEveryMemberMustBeChecksummed:
+    """Coverage, the half of step 13 that was missing.
+
+    Verifying the entries you are handed answers "does everything named here
+    match?" and never "is everything here named?". An archive member the
+    document omits is one nobody hashes, so it passes step 13 untouched. These
+    pin the equality: checksummed set == content members, less `checksums.json`.
+    """
+
+    def test_a_member_with_no_checksum_entry_is_refused(self, tmp_path: Path) -> None:
+        """The core case: a real file the document simply does not mention."""
+        digest = member(tmp_path, "defense-pack.json", b'{"a":1}\n')
+        member(tmp_path, "compatibility.json", b'{"b":2}\n')
+        with pytest.raises(ArchiveIntegrityError, match="no checksum entry"):
+            verify_member_checksums(tmp_path, {"defense-pack.json": digest})
+
+    def test_an_unlisted_nested_content_member_is_refused(self, tmp_path: Path) -> None:
+        """`rules/` content is where an unlisted member would actually hide."""
+        digest = member(tmp_path, "defense-pack.json", b'{"a":1}\n')
+        member(tmp_path, "rules/injected.json", b'{"malicious":true}\n')
+        with pytest.raises(ArchiveIntegrityError, match=r"rules/injected\.json"):
+            verify_member_checksums(tmp_path, {"defense-pack.json": digest})
+
+    def test_the_error_names_every_uncovered_member(self, tmp_path: Path) -> None:
+        digest = member(tmp_path, "defense-pack.json", b'{"a":1}\n')
+        member(tmp_path, "compatibility.json", b'{"b":2}\n')
+        member(tmp_path, "rules/extra.json", b"{}\n")
+        with pytest.raises(ArchiveIntegrityError) as raised:
+            verify_member_checksums(tmp_path, {"defense-pack.json": digest})
+        assert "compatibility.json" in str(raised.value)
+        assert "rules/extra.json" in str(raised.value)
+
+    def test_full_coverage_verifies(self, tmp_path: Path) -> None:
+        """The real shape: every content member named, and it passes."""
+        checksums = {
+            "defense-pack.json": member(tmp_path, "defense-pack.json", b'{"a":1}\n'),
+            "compatibility.json": member(tmp_path, "compatibility.json", b'{"b":2}\n'),
+            "rules/one.json": member(tmp_path, "rules/one.json", b'{"c":3}\n'),
+        }
+        (tmp_path / "checksums.json").write_text("{}", encoding="utf-8")
+        assert verify_member_checksums(tmp_path, checksums) == checksums
+
+    def test_the_checksums_document_itself_needs_no_entry(self, tmp_path: Path) -> None:
+        """It cannot carry its own digest: writing it changes the bytes.
+
+        The one exclusion. Requiring it would refuse every real pack, which is
+        the failure mode this whole PR exists to fix -- so it is pinned rather
+        than left as a comment.
+        """
+        digest = member(tmp_path, "defense-pack.json", b'{"a":1}\n')
+        (tmp_path / "checksums.json").write_text("{}", encoding="utf-8")
+        assert verify_member_checksums(tmp_path, {"defense-pack.json": digest}) == {
+            "defense-pack.json": digest
+        }
+
+    def test_an_empty_directory_is_not_a_member(self, tmp_path: Path) -> None:
+        """Directories carry no content, so they need no digest."""
+        digest = member(tmp_path, "defense-pack.json", b'{"a":1}\n')
+        (tmp_path / "rules").mkdir()
+        assert verify_member_checksums(tmp_path, {"defense-pack.json": digest}) == {
+            "defense-pack.json": digest
+        }
+
+    def test_a_missing_member_still_reports_that_and_not_coverage(
+        self, tmp_path: Path
+    ) -> None:
+        """Ordering guard.
+
+        Coverage runs after the per-entry loop on purpose. Were it first, an
+        entry naming an absent file would be recast as a coverage complaint
+        and the specific fault would be lost.
+        """
+        with pytest.raises(ArchiveIntegrityError, match="member is missing"):
+            verify_member_checksums(tmp_path, {"absent.json": DIGEST})
