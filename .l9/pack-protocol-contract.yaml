@@ -17,6 +17,34 @@ input:
   public_key:
     source: trusted-key-registry
     embedded_key_behavior: must_match_trusted_key
+  checksums_document:
+    member: checksums.json
+    protocol: l9.defense-checksums/v1
+    owner: l9-ci-debt-intelligence
+    owner_schema: schemas/intelligence/defense-checksums.schema.json
+    shape:
+      schema_version: l9.defense-checksums/v1
+      files: archive-relative member path -> lowercase SHA-256 hex
+    envelope_required: true
+    distinct_from: >-
+      the `checksums` field inside defense-pack.json, which is a bare
+      path -> digest mapping with no envelope. Reading this member with a
+      loader written for that field is what refused every real pack at
+      validate_checksums_document with "checksum value must be a string:
+      files".
+    consumed_at:
+      - validate_checksums_document
+      - verify_member_checksums
+    coverage_required: true
+    coverage: >-
+      the checksummed set must equal the archive's content members less
+      checksums.json, which cannot carry its own digest. verify_member_checksums
+      iterates the entries it is handed, so entries alone answer "does
+      everything named here match?" and never "is everything here named?" -- an
+      omitted member is one nobody hashes and passes the step untouched. An
+      empty `files` mapping is refused at validate_checksums_document; partial
+      coverage is refused at verify_member_checksums, after per-entry
+      verification so a missing or traversing path still reports its own fault.
 verification_order:
   - parse_manifest
   - validate_manifest_schema
