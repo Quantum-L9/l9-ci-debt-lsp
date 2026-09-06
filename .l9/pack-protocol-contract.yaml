@@ -17,6 +17,24 @@ input:
   public_key:
     source: trusted-key-registry
     embedded_key_behavior: must_match_trusted_key
+  checksums_document:
+    member: checksums.json
+    protocol: l9.defense-checksums/v1
+    owner: l9-ci-debt-intelligence
+    owner_schema: schemas/intelligence/defense-checksums.schema.json
+    shape:
+      schema_version: l9.defense-checksums/v1
+      files: archive-relative member path -> lowercase SHA-256 hex
+    envelope_required: true
+    distinct_from: >-
+      the `checksums` field inside defense-pack.json, which is a bare
+      path -> digest mapping with no envelope. Reading this member with a
+      loader written for that field is what refused every real pack at
+      validate_checksums_document with "checksum value must be a string:
+      files".
+    consumed_at:
+      - validate_checksums_document
+      - verify_member_checksums
 verification_order:
   - parse_manifest
   - validate_manifest_schema

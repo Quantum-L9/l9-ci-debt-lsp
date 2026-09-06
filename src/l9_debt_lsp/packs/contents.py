@@ -22,18 +22,55 @@ def validate_required_members(root: Path) -> None:
         raise ArchiveIntegrityError(f"required archive members are missing: {missing}")
 
 
+#: The `checksums.json` archive member, published by the producer as
+#: `schemas/intelligence/defense-checksums.schema.json` in
+#: `l9-ci-debt-intelligence`, whose `.l9/publication-contract.yaml` gives it
+#: `owner: intelligence` under `authority.intelligence: assemble pack`.
+CHECKSUMS_PROTOCOL = "l9.defense-checksums/v1"
+
+_SHA256_CHARACTERS = frozenset("0123456789abcdef")
+_SHA256_LENGTH = 64
+
+
 def load_checksums(root: Path) -> dict[str, str]:
+    """Read and validate `checksums.json` against the published shape.
+
+    This used to read `document.get("checksums", document)` -- a shape that
+    belongs to a *different* document: the bare `checksums` mapping inside
+    `defense-pack.json`. Applied to this member the fallback landed on the
+    envelope itself, so the first key it met was `files`, whose value is an
+    object, and every real pack was refused with `checksum value must be a
+    string: files` at verification step `validate_checksums_document`.
+
+    Nothing caught it because every fixture wrote `checksums.json` as `{}`,
+    which satisfied the old loader trivially and left `verify_member_checksums`
+    with nothing to verify -- a vacuous pass at step 13 as well as a wrong
+    shape at step 12.
+
+    The guess is gone deliberately. A bare mapping carries no version, so a
+    consumer that accepts one cannot tell a format change from a valid
+    document, which is how this divergence survived. `schema_version` is now
+    required and matched exactly.
+    """
     document = load_json(root / "checksums.json")
-    checksums = document.get("checksums", document)
+    version = document.get("schema_version")
+    if version != CHECKSUMS_PROTOCOL:
+        raise ArchiveIntegrityError(
+            f"checksums document must declare {CHECKSUMS_PROTOCOL!r}, found {version!r}"
+        )
+    unknown = sorted(set(document) - {"schema_version", "files"})
+    if unknown:
+        raise ArchiveIntegrityError(f"checksums document has unknown fields: {unknown}")
+    checksums = document.get("files")
     if not isinstance(checksums, dict):
-        raise ArchiveIntegrityError("checksums document must contain an object")
+        raise ArchiveIntegrityError("checksums document 'files' must be an object")
     result: dict[str, str] = {}
     for name, digest in checksums.items():
         if not isinstance(name, str):
             raise ArchiveIntegrityError("checksum path must be a string")
         if not isinstance(digest, str):
             raise ArchiveIntegrityError(f"checksum value must be a string: {name}")
-        if len(digest) != 64:
+        if len(digest) != _SHA256_LENGTH or not _SHA256_CHARACTERS.issuperset(digest):
             raise ArchiveIntegrityError(f"checksum must be SHA-256: {name}")
         result[name] = digest
     return dict(sorted(result.items()))
