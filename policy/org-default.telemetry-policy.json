@@ -1,0 +1,12 @@
+{
+  "schema_version": "l9.telemetry-policy/v1",
+  "mode": "user_opt_in",
+  "consent": "granted",
+  "endpoint": "https://feedback.quantumaipartners.com/api/v1/events",
+  "endpoint_allowlist": [
+    "https://feedback.quantumaipartners.com/"
+  ],
+  "retention_days": 30,
+  "organization_policy_id": "quantum-l9-core",
+  "limitations": []
+}
