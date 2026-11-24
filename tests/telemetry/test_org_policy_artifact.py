@@ -18,6 +18,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from l9_debt_lsp.contracts.errors import SchemaValidationError
 from l9_debt_lsp.telemetry.errors import TelemetryPolicyError
 from l9_debt_lsp.telemetry.policy import TelemetryPolicyStore
 
@@ -69,7 +70,7 @@ class OrgDefaultPolicyTests(unittest.TestCase):
     def test_a_document_that_violates_the_schema_is_refused(self) -> None:
         document = artifact()
         document["mode"] = "delivery"
-        with self.assertRaises(Exception):
+        with self.assertRaises(SchemaValidationError):
             self.store.apply_document(document)
         self.assertFalse(self.policy_path.exists())
 

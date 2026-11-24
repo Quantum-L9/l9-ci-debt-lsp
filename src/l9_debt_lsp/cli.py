@@ -77,7 +77,7 @@ def parser() -> argparse.ArgumentParser:
         "--source",
         type=Path,
         required=True,
-        help="Policy document to validate and adopt, e.g. policy/org-default.telemetry-policy.json",
+        help="Policy document to validate and adopt, e.g. the org default",
     )
     verify = commands.add_parser("verify-installed-pack")
     verify.add_argument("--pack-id", required=True)
@@ -162,9 +162,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             schema_path=(schemas / "telemetry-policy.schema.json"),
         )
         if arguments.command == "telemetry-policy-apply":
-            policy = policy_store.apply_document(
-                load_json(arguments.source.resolve())
-            )
+            policy = policy_store.apply_document(load_json(arguments.source.resolve()))
         else:
             policy = policy_store.load()
         emit(
