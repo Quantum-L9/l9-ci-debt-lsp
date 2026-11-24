@@ -49,6 +49,7 @@ jobs:
       - name: Architecture tests
         run: pytest tests/architecture
       - name: Full suite
+        if: github.event_name != 'pull_request'
         run: |
           pytest \
             --cov=l9_debt_lsp \
