@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+from collections.abc import Mapping
 from pathlib import Path
+from typing import Any
 
 from l9_debt_lsp.contracts.schema import SchemaValidator
 from l9_debt_lsp.packs.jsonio import (
@@ -71,6 +73,29 @@ class TelemetryPolicyStore:
                 "limitations": list(policy.limitations),
             },
         )
+
+    def apply_document(self, document: Mapping[str, Any]) -> TelemetryPolicy:
+        """Adopt a policy document from any source, validating before writing.
+
+        An organization default arrives as a file rather than as a sequence of
+        setter calls, so it is checked against the schema and against the
+        semantic rules before anything is written. An invalid default can never
+        replace a working policy, and a policy that would deliver to an endpoint
+        outside its own allowlist never reaches the spool.
+        """
+        SchemaValidator(self.schema_path).validate(dict(document))
+        policy = TelemetryPolicy(
+            mode=str(document["mode"]),
+            consent=str(document["consent"]),
+            endpoint=document["endpoint"],
+            endpoint_allowlist=tuple(sorted(set(document["endpoint_allowlist"]))),
+            retention_days=int(document["retention_days"]),
+            organization_policy_id=document["organization_policy_id"],
+            limitations=tuple(sorted(set(document["limitations"]))),
+        )
+        self._validate_semantics(policy)
+        self.save(policy)
+        return policy
 
     @staticmethod
     def _validate_semantics(policy: TelemetryPolicy) -> None:

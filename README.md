@@ -262,6 +262,28 @@ Telemetry never contains:
 Telemetry failures never block diagnostics, code actions, pack activation, or
 server startup.
 
+### Arming the return leg
+
+`policy/org-default.telemetry-policy.json` is the organization default. It is
+validated against `schemas/lsp/telemetry-policy.schema.json` and adopted with:
+
+```text
+l9-debt-lsp-contracts telemetry-policy-apply \
+  --source policy/org-default.telemetry-policy.json
+l9-debt-lsp-contracts telemetry-policy-show
+```
+
+The artifact declares `mode: user_opt_in` with `consent: granted`, which is the
+schema's spelling of "delivery enabled, developer opted in":
+`TelemetryPolicy.delivery_enabled` is true only for `user_opt_in` + `granted`
+or `organization_controlled` + `organization_required`. Its endpoint is the
+constellation ingress and that origin is the only entry in the allowlist, so a
+policy that would deliver anywhere else is refused before it is written.
+
+Adoption is per installation: the artifact ships the choice, it does not make
+it. Nothing leaves the machine until the policy is applied, and
+`telemetry-delete-all` remains the local eraser.
+
 Repository completion
 
 Version 1.0.0 completes the LSP architectural roadmap:
@@ -272,4 +294,3 @@ LSP-P2  incremental SDK runtime
 LSP-P3  canonical diagnostics
 LSP-P4  bounded code actions
 LSP-P5  privacy-safe effectiveness telemetry
-

@@ -15,6 +15,7 @@ from .packs.paths import StatePaths, default_state_root
 from .packs.store import PackStore
 from .runtime.capabilities import phase_capabilities
 from .telemetry.paths import TelemetryPaths
+from .telemetry.policy import TelemetryPolicyStore
 from .telemetry.service import TelemetryService
 
 
@@ -70,6 +71,14 @@ def parser() -> argparse.ArgumentParser:
     commands.add_parser("telemetry-health")
     commands.add_parser("telemetry-deliver")
     commands.add_parser("telemetry-delete-all")
+    commands.add_parser("telemetry-policy-show")
+    apply_policy = commands.add_parser("telemetry-policy-apply")
+    apply_policy.add_argument(
+        "--source",
+        type=Path,
+        required=True,
+        help="Policy document to validate and adopt, e.g. policy/org-default.telemetry-policy.json",
+    )
     verify = commands.add_parser("verify-installed-pack")
     verify.add_argument("--pack-id", required=True)
     return root
@@ -147,6 +156,31 @@ def main(argv: Sequence[str] | None = None) -> int:
         emit(manager.recover())
         return 0
 
+    if arguments.command in {"telemetry-policy-show", "telemetry-policy-apply"}:
+        policy_store = TelemetryPolicyStore(
+            path=TelemetryPaths(paths).policy,
+            schema_path=(schemas / "telemetry-policy.schema.json"),
+        )
+        if arguments.command == "telemetry-policy-apply":
+            policy = policy_store.apply_document(
+                load_json(arguments.source.resolve())
+            )
+        else:
+            policy = policy_store.load()
+        emit(
+            {
+                "schema_version": "l9.telemetry-policy-view/v1",
+                "mode": policy.mode,
+                "consent": policy.consent,
+                "endpoint": policy.endpoint,
+                "endpoint_allowlist": list(policy.endpoint_allowlist),
+                "retention_days": policy.retention_days,
+                "organization_policy_id": policy.organization_policy_id,
+                "persistence_enabled": policy.persistence_enabled,
+                "delivery_enabled": policy.delivery_enabled,
+            }
+        )
+        return 0
     if arguments.command in {
         "telemetry-health",
         "telemetry-deliver",
